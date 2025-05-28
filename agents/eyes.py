@@ -98,6 +98,77 @@ class Eyes:
         )
         return {"num_contours": len(contours)}
 
+    def lidar_tile_dtm(
+        self, path: str, resolution: float = 1.0
+    ) -> Dict[str, Any]:
+        """Generate a bare-earth DTM and visualizations from a LiDAR tile.
+
+        Parameters
+        ----------
+        path:
+            Path to a ``.laz`` point cloud file.
+        resolution:
+            Grid resolution for rasterization in units of the input data.
+
+        Returns
+        -------
+        Dict[str, Any]
+            Dictionary containing the DTM array, hillshade array and, when
+            possible, a local relief model.
+        """
+
+        if pdal is None:
+            raise RuntimeError("PDAL is not installed.")
+        if rasterio is None or np is None:
+            raise RuntimeError("rasterio and NumPy are required.")
+
+        pipeline = {
+            "pipeline": [
+                path,
+                {"type": "filters.smrf"},
+                {"type": "filters.range", "limits": "Classification[2:2]"},
+                {
+                    "type": "writers.gdal",
+                    "filename": "/vsimem/dtm.tif",
+                    "resolution": resolution,
+                    "output_type": "mean",
+                },
+            ]
+        }
+
+        pl = pdal.Pipeline(json.dumps(pipeline))
+        pl.execute()
+
+        with rasterio.open("/vsimem/dtm.tif") as src:
+            dtm = src.read(1)
+            profile = src.profile
+
+        cellsize = profile["transform"][0]
+        gy, gx = np.gradient(dtm, cellsize)
+        slope = np.pi / 2.0 - np.arctan(np.sqrt(gx * gx + gy * gy))
+        aspect = np.arctan2(-gx, gy)
+        azimuth = np.deg2rad(315.0)
+        altitude = np.deg2rad(45.0)
+        hillshade = 255.0 * (
+            np.sin(altitude) * np.sin(slope)
+            + np.cos(altitude)
+            * np.cos(slope)
+            * np.cos(azimuth - aspect)
+        )
+        hillshade = np.clip(hillshade, 0, 255).astype(np.uint8)
+
+        local_relief = None
+        if cv2 is not None:
+            blurred = cv2.GaussianBlur(dtm, (0, 0), sigmaX=5)
+            local_relief = dtm - blurred
+
+        return {
+            "dtm": dtm,
+            "hillshade": hillshade,
+            "local_relief": local_relief,
+            "profile": profile,
+        }
+
     def summarize(self, findings: str) -> str:
         """Generate a factual summary using an OpenAI model."""
         if self.client is None:
