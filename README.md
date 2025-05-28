@@ -1,2 +1,14 @@
 # casiquiare
 Researching novel methods to help archeological efforts in the Amazon
+
+## Eyes agent utilities
+
+Tools for the Eyes agent live in `agents/eyes_tools.py`. These helpers handle
+LiDAR processing, raster inspection, coordinate transforms, and shape
+detection. They are callable directly or via `Eyes.tools` and wrapped as
+methods on the `Eyes` agent.
+
+The `detect_shapes` function scans a hillshade or local relief image for
+geometric forms and reports their approximate size. Supplying the raster
+profile allows the results to be expressed in meters so features outside the
+50–300 m range can be filtered out.
