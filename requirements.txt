@@ -1,0 +1,6 @@
+openai
+opencv-python
+numpy
+rasterio
+pdal
+pyproj
