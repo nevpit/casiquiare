@@ -1,42 +1,20 @@
-"""Eyes agent for remote sensing and GIS analysis.
-
-This module defines the `Eyes` agent that leverages geospatial libraries and
-OpenAI's SDK to provide factual observations from LiDAR, raster, and imagery
-data. The agent focuses on detection and description of potential
-archaeological features without interpretation.
-"""
+"""Eyes agent for remote sensing and GIS analysis."""
 
 from __future__ import annotations
 
-import json
 import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
-try:  # Optional heavy dependencies
-    import cv2
-except Exception:  # pragma: no cover - library may be missing
-    cv2 = None
-
-try:
-    import numpy as np
-except Exception:  # pragma: no cover - library may be missing
-    np = None
-
-try:
-    import rasterio
-except Exception:  # pragma: no cover - library may be missing
-    rasterio = None
-
-try:
-    import pdal
-except Exception:  # pragma: no cover - library may be missing
-    pdal = None
-
-try:
-    from pyproj import Transformer
-except Exception:  # pragma: no cover - library may be missing
-    Transformer = None
+from .eyes_tools import (
+    analyze_lidar,
+    analyze_raster,
+    transform_coordinates,
+    detect_image_features,
+    lidar_tile_dtm,
+    detect_shapes,
+    TOOLS,
+)
 
 try:
     from openai import OpenAI
@@ -51,123 +29,41 @@ class Eyes:
     api_key: Optional[str] = None
     model: str = "gpt-4-turbo"
     client: Any = field(init=False, default=None)
+    tools: Dict[str, Any] = field(init=False, default_factory=dict)
 
     def __post_init__(self) -> None:
         if OpenAI is not None:
             self.client = OpenAI(api_key=self.api_key or os.getenv("OPENAI_API_KEY"))
+        self.tools = TOOLS
 
-    def analyze_lidar(
-        self, path: str, pipeline: Optional[Dict[str, Any]] = None
-    ) -> List[Dict[str, Any]]:
-        """Load and process a LiDAR point cloud using PDAL."""
-        if pdal is None:
-            raise RuntimeError("PDAL is not installed.")
-        pipeline = pipeline or {"pipeline": [path]}
-        pl = pdal.Pipeline(json.dumps(pipeline))
-        pl.execute()
-        arrays = pl.arrays
-        return [arr.tolist() for arr in arrays]
+    # Thin wrappers around utility functions ---------------------------------
+
+    def analyze_lidar(self, path: str, pipeline: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+        return analyze_lidar(path, pipeline)
 
     def analyze_raster(self, path: str) -> Dict[str, Any]:
-        """Read raster metadata using rasterio."""
-        if rasterio is None:
-            raise RuntimeError("rasterio is not installed.")
-        with rasterio.open(path) as src:
-            meta = src.meta.copy()
-        return meta
+        return analyze_raster(path)
 
     def transform_coordinates(
         self, x: float, y: float, from_epsg: int = 4326, to_epsg: int = 3857
     ) -> Tuple[float, float]:
-        """Transform coordinates between projections using pyproj."""
-        if Transformer is None:
-            raise RuntimeError("pyproj is not installed.")
-        transformer = Transformer.from_crs(from_epsg, to_epsg, always_xy=True)
-        return transformer.transform(x, y)
+        return transform_coordinates(x, y, from_epsg, to_epsg)
 
     def detect_image_features(self, path: str) -> Dict[str, Any]:
-        """Detect simple features in an image using OpenCV."""
-        if cv2 is None or np is None:
-            raise RuntimeError("OpenCV and NumPy are required.")
-        img = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
-        if img is None:
-            raise ValueError(f"Unable to read image at {path}")
-        edges = cv2.Canny(img, 100, 200)
-        contours, _ = cv2.findContours(
-            edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
-        )
-        return {"num_contours": len(contours)}
+        return detect_image_features(path)
 
-    def lidar_tile_dtm(
-        self, path: str, resolution: float = 1.0
-    ) -> Dict[str, Any]:
-        """Generate a bare-earth DTM and visualizations from a LiDAR tile.
+    def lidar_tile_dtm(self, path: str, resolution: float = 1.0) -> Dict[str, Any]:
+        return lidar_tile_dtm(path, resolution)
 
-        Parameters
-        ----------
-        path:
-            Path to a ``.laz`` point cloud file.
-        resolution:
-            Grid resolution for rasterization in units of the input data.
+    def detect_shapes(
+        self,
+        image: "Any",
+        profile: Optional[Dict[str, Any]] = None,
+        size_range: Tuple[float, float] = (50.0, 300.0),
+    ) -> List[Dict[str, Any]]:
+        return detect_shapes(image, profile, size_range)
 
-        Returns
-        -------
-        Dict[str, Any]
-            Dictionary containing the DTM array, hillshade array and, when
-            possible, a local relief model.
-        """
-
-        if pdal is None:
-            raise RuntimeError("PDAL is not installed.")
-        if rasterio is None or np is None:
-            raise RuntimeError("rasterio and NumPy are required.")
-
-        pipeline = {
-            "pipeline": [
-                path,
-                {"type": "filters.smrf"},
-                {"type": "filters.range", "limits": "Classification[2:2]"},
-                {
-                    "type": "writers.gdal",
-                    "filename": "/vsimem/dtm.tif",
-                    "resolution": resolution,
-                    "output_type": "mean",
-                },
-            ]
-        }
-
-        pl = pdal.Pipeline(json.dumps(pipeline))
-        pl.execute()
-
-        with rasterio.open("/vsimem/dtm.tif") as src:
-            dtm = src.read(1)
-            profile = src.profile
-
-        cellsize = profile["transform"][0]
-        gy, gx = np.gradient(dtm, cellsize)
-        slope = np.pi / 2.0 - np.arctan(np.sqrt(gx * gx + gy * gy))
-        aspect = np.arctan2(-gx, gy)
-        azimuth = np.deg2rad(315.0)
-        altitude = np.deg2rad(45.0)
-        hillshade = 255.0 * (
-            np.sin(altitude) * np.sin(slope)
-            + np.cos(altitude)
-            * np.cos(slope)
-            * np.cos(azimuth - aspect)
-        )
-        hillshade = np.clip(hillshade, 0, 255).astype(np.uint8)
-
-        local_relief = None
-        if cv2 is not None:
-            blurred = cv2.GaussianBlur(dtm, (0, 0), sigmaX=5)
-            local_relief = dtm - blurred
-
-        return {
-            "dtm": dtm,
-            "hillshade": hillshade,
-            "local_relief": local_relief,
-            "profile": profile,
-        }
+    # -----------------------------------------------------------------------
 
     def summarize(self, findings: str) -> str:
         """Generate a factual summary using an OpenAI model."""
@@ -184,7 +80,5 @@ class Eyes:
             },
             {"role": "user", "content": findings},
         ]
-        response = self.client.chat.completions.create(
-            model=self.model, messages=messages
-        )
+        response = self.client.chat.completions.create(model=self.model, messages=messages)
         return response.choices[0].message.content.strip()
