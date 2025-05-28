@@ -2,5 +2,5 @@ openai
 opencv-python
 numpy
 rasterio
-pdal
+python-pdal
 pyproj
