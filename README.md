@@ -17,3 +17,10 @@ Utility modules under `processing` extend the toolkit with low-level I/O helpers
 The `write_geotiff` function in `processing/lidar.py` saves an array to a
 GeoTIFF file using a provided rasterio profile so the CRS and transform are
 preserved.
+
+## Optional dependencies
+
+Some advanced features, such as generating hillshades and local relief models,
+rely on `scipy` and the `gdal` library (available as the `osgeo` module). Install
+these packages alongside the standard requirements if you need the full
+functionality of the processing utilities.
