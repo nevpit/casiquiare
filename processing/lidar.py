@@ -35,6 +35,16 @@ try:
 except Exception:  # pragma: no cover - library may be missing
     pdal = None  # type: ignore
 
+try:
+    from osgeo import gdal
+except Exception:  # pragma: no cover - library may be missing
+    gdal = None
+
+try:
+    import pdal
+except Exception:  # pragma: no cover - library may be missing
+    pdal = None
+
 
 def write_geotiff(path: str, array: "np.ndarray", profile: Dict[str, Any]) -> None:
     """Write a NumPy array to a GeoTIFF file using rasterio."""
@@ -71,6 +81,10 @@ def generate_lrm(dtm: "np.ndarray", sigma: float = 5) -> "np.ndarray":
     return dtm.astype(float) - blurred
 
 
+def generate_hillshade(
+    dtm: "np.ndarray", azimuth: int = 315, altitude: int = 45
+) -> "np.ndarray":
+
 def generate_hillshade(dtm: "np.ndarray", azimuth: int = 315, altitude: int = 45) -> "np.ndarray":
     """Create a hillshade image from a digital terrain model using GDAL."""
     if gdal is None or np is None:
@@ -96,7 +110,6 @@ def build_dtm(pipeline: "pdal.Pipeline", resolution: float = 1.0) -> Tuple["np.n
     if rasterio is None or np is None:
         raise RuntimeError("rasterio and NumPy are required.")
 
-    # Parse the existing pipeline specification so we can append steps
     spec = json.loads(pipeline.json)
     spec["pipeline"].extend(
         [
