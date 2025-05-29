@@ -12,3 +12,8 @@ The `detect_shapes` function scans a hillshade or local relief image for
 geometric forms and reports their approximate size. Supplying the raster
 profile allows the results to be expressed in meters so features outside the
 50–300 m range can be filtered out.
+
+Utility modules under `processing` extend the toolkit with low-level I/O helpers.
+The `write_geotiff` function in `processing/lidar.py` saves an array to a
+GeoTIFF file using a provided rasterio profile so the CRS and transform are
+preserved.
