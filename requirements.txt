@@ -4,3 +4,4 @@ numpy
 rasterio
 python-pdal
 pyproj
+pytest
