@@ -8,22 +8,32 @@ from typing import Any, Dict, Tuple
 try:  # Optional heavy dependencies
     import cv2
 except Exception:  # pragma: no cover - library may be missing
-    cv2 = None
+    cv2 = None  # type: ignore
 
 try:
     from scipy.ndimage import gaussian_filter
 except Exception:  # pragma: no cover - library may be missing
-    gaussian_filter = None
+    gaussian_filter = None  # type: ignore
 
 try:
     import numpy as np
 except Exception:  # pragma: no cover - library may be missing
-    np = None
+    np = None  # type: ignore
 
 try:
     import rasterio
 except Exception:  # pragma: no cover - library may be missing
-    rasterio = None
+    rasterio = None  # type: ignore
+
+try:
+    from osgeo import gdal
+except Exception:  # pragma: no cover - library may be missing
+    gdal = None  # type: ignore
+
+try:
+    import pdal
+except Exception:  # pragma: no cover - library may be missing
+    pdal = None  # type: ignore
 
 try:
     from osgeo import gdal
@@ -74,6 +84,8 @@ def generate_lrm(dtm: "np.ndarray", sigma: float = 5) -> "np.ndarray":
 def generate_hillshade(
     dtm: "np.ndarray", azimuth: int = 315, altitude: int = 45
 ) -> "np.ndarray":
+
+def generate_hillshade(dtm: "np.ndarray", azimuth: int = 315, altitude: int = 45) -> "np.ndarray":
     """Create a hillshade image from a digital terrain model using GDAL."""
     if gdal is None or np is None:
         raise RuntimeError("GDAL and NumPy are required.")
