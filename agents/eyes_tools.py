@@ -26,6 +26,11 @@ except Exception:  # pragma: no cover - library may be missing
     pdal = None
 
 try:
+    from processing.lidar import build_dtm
+except Exception:  # pragma: no cover - library may be missing
+    build_dtm = None
+
+try:
     from pyproj import Transformer
 except Exception:  # pragma: no cover - library may be missing
     Transformer = None
@@ -78,26 +83,11 @@ def lidar_tile_dtm(path: str, resolution: float = 1.0) -> Dict[str, Any]:
     if rasterio is None or np is None:
         raise RuntimeError("rasterio and NumPy are required.")
 
-    pipeline = {
-        "pipeline": [
-            path,
-            {"type": "filters.smrf"},
-            {"type": "filters.range", "limits": "Classification[2:2]"},
-            {
-                "type": "writers.gdal",
-                "filename": "/vsimem/dtm.tif",
-                "resolution": resolution,
-                "output_type": "mean",
-            },
-        ]
-    }
-
+    pipeline = {"pipeline": [path]}
     pl = pdal.Pipeline(json.dumps(pipeline))
-    pl.execute()
-
-    with rasterio.open("/vsimem/dtm.tif") as src:
-        dtm = src.read(1)
-        profile = src.profile
+    if build_dtm is None:
+        raise RuntimeError("build_dtm utility is not available.")
+    dtm, profile = build_dtm(pl, resolution)
 
     cellsize = profile["transform"][0]
     gy, gx = np.gradient(dtm, cellsize)
