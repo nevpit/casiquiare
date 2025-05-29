@@ -4,3 +4,5 @@ numpy
 rasterio
 python-pdal
 pyproj
+scipy
+gdal
