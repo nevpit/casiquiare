@@ -1,12 +1,10 @@
 """Processing utilities for LiDAR and raster data."""
 
-from .lidar import write_geotiff
+from .lidar import write_geotiff, generate_lrm, generate_hillshade, build_dtm
 
-__all__ = ["write_geotiff"]
-=======
-"""Processing utilities for remote sensing data."""
-
-from .lidar import generate_lrm
-
-__all__ = ["generate_lrm"]
-=======
+__all__ = [
+    "write_geotiff",
+    "generate_lrm",
+    "generate_hillshade",
+    "build_dtm",
+]

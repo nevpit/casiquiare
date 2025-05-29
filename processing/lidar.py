@@ -1,16 +1,10 @@
-=======
-from __future__ import annotations
-
-from typing import Optional
-
-try:
-=======
 """LiDAR processing utilities."""
 
 from __future__ import annotations
 
-from typing import Any, Dict
-=======
+import json
+from typing import Any, Dict, Tuple
+
 try:  # Optional heavy dependencies
     import cv2
 except Exception:  # pragma: no cover - library may be missing
@@ -31,20 +25,19 @@ try:
 except Exception:  # pragma: no cover - library may be missing
     rasterio = None
 
+try:
+    from osgeo import gdal
+except Exception:  # pragma: no cover - library may be missing
+    gdal = None
+
+try:
+    import pdal
+except Exception:  # pragma: no cover - library may be missing
+    pdal = None
+
 
 def write_geotiff(path: str, array: "np.ndarray", profile: Dict[str, Any]) -> None:
-    """Write a NumPy array to a GeoTIFF file using rasterio.
-
-    Parameters
-    ----------
-    path:
-        Destination file path.
-    array:
-        Data array to write. If 2D, a single band is written; if 3D, the first
-        dimension is treated as band count.
-    profile:
-        Rasterio profile containing CRS and transform information.
-    """
+    """Write a NumPy array to a GeoTIFF file using rasterio."""
     if rasterio is None:
         raise RuntimeError("rasterio is not installed.")
     if np is None:
@@ -61,9 +54,9 @@ def write_geotiff(path: str, array: "np.ndarray", profile: Dict[str, Any]) -> No
             dst.write(arr, 1)
         else:
             dst.write(arr)
-=======
 
-def generate_lrm(dtm: np.ndarray, sigma: float = 5) -> np.ndarray:
+
+def generate_lrm(dtm: "np.ndarray", sigma: float = 5) -> "np.ndarray":
     """Generate a local relief model from a DTM using Gaussian blur."""
     if np is None:
         raise RuntimeError("NumPy is required.")
@@ -78,39 +71,10 @@ def generate_lrm(dtm: np.ndarray, sigma: float = 5) -> np.ndarray:
     return dtm.astype(float) - blurred
 
 
-__all__ = ["generate_lrm"]
-=======
-import json
-from typing import Any, Tuple
-
-try:  # Optional heavy dependencies
-    import numpy as np
-except Exception:  # pragma: no cover - library may be missing
-    np = None  # type: ignore
-
-try:
-    from osgeo import gdal
-except Exception:  # pragma: no cover - library may be missing
-    gdal = None  # type: ignore
-
-
-def generate_hillshade(dtm: "np.ndarray", azimuth: int = 315, altitude: int = 45) -> "np.ndarray":
-    """Create a hillshade image from a digital terrain model using GDAL.
-
-    Parameters
-    ----------
-    dtm : np.ndarray
-        2D array containing elevation values.
-    azimuth : int, optional
-        Direction of the light source in degrees, by default 315.
-    altitude : int, optional
-        Altitude angle of the light source in degrees, by default 45.
-
-    Returns
-    -------
-    np.ndarray
-        Hillshade raster as a NumPy array with the same shape as ``dtm``.
-    """
+def generate_hillshade(
+    dtm: "np.ndarray", azimuth: int = 315, altitude: int = 45
+) -> "np.ndarray":
+    """Create a hillshade image from a digital terrain model using GDAL."""
     if gdal is None or np is None:
         raise RuntimeError("GDAL and NumPy are required.")
 
@@ -125,41 +89,15 @@ def generate_hillshade(dtm: "np.ndarray", azimuth: int = 315, altitude: int = 45
 
     hillshade = dst.ReadAsArray()
     return hillshade.reshape(dtm.shape)
-=======
-    import rasterio
-except Exception:  # pragma: no cover - library may be missing
-    rasterio = None  # type: ignore
-
-try:
-    import pdal
-except Exception:  # pragma: no cover - library may be missing
-    pdal = None  # type: ignore
 
 
 def build_dtm(pipeline: "pdal.Pipeline", resolution: float = 1.0) -> Tuple["np.ndarray", dict]:
-    """Execute a PDAL pipeline to generate a bare-earth DTM.
-
-    Parameters
-    ----------
-    pipeline:
-        A preconfigured :class:`pdal.Pipeline` with the data source steps
-        already defined.
-    resolution:
-        Desired output resolution for the raster, in the units of the
-        point cloud's coordinate system.
-
-    Returns
-    -------
-    Tuple[np.ndarray, dict]
-        The DTM array and its raster profile.
-    """
-
+    """Execute a PDAL pipeline to generate a bare-earth DTM."""
     if pdal is None:
         raise RuntimeError("PDAL is not installed.")
     if rasterio is None or np is None:
         raise RuntimeError("rasterio and NumPy are required.")
 
-    # Parse the existing pipeline specification so we can append steps
     spec = json.loads(pipeline.json)
     spec["pipeline"].extend(
         [
@@ -182,3 +120,11 @@ def build_dtm(pipeline: "pdal.Pipeline", resolution: float = 1.0) -> Tuple["np.n
         profile = src.profile
 
     return dtm, profile
+
+
+__all__ = [
+    "write_geotiff",
+    "generate_lrm",
+    "generate_hillshade",
+    "build_dtm",
+]
