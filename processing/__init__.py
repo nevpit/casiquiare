@@ -8,4 +8,3 @@ __all__ = [
     "generate_hillshade",
     "build_dtm",
 ]
-__all__ = ["write_geotiff", "generate_lrm", "generate_hillshade", "build_dtm"]
