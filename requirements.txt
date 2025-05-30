@@ -5,5 +5,4 @@ rasterio
 python-pdal
 pyproj
 scipy
-gdal
 pytest
