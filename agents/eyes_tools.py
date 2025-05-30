@@ -26,9 +26,10 @@ except Exception:  # pragma: no cover - library may be missing
     pdal = None
 
 try:
-    from processing.lidar import build_dtm
+    from processing.lidar import build_dtm, generate_lrm
 except Exception:  # pragma: no cover - library may be missing
     build_dtm = None
+    generate_lrm = None
 
 try:
     from pyproj import Transformer
@@ -99,9 +100,11 @@ def lidar_tile_dtm(path: str, resolution: float = 1.0) -> Dict[str, Any]:
     hillshade = np.clip(hillshade, 0, 255).astype(np.uint8)
 
     local_relief = None
-    if cv2 is not None:
-        blurred = cv2.GaussianBlur(dtm, (0, 0), sigmaX=5)
-        local_relief = dtm - blurred
+    if generate_lrm is not None:
+        try:
+            local_relief = generate_lrm(dtm, sigma=5)
+        except Exception:  # pragma: no cover - dependency may be missing
+            local_relief = None
 
     return {
         "dtm": dtm,
