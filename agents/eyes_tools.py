@@ -27,9 +27,11 @@ except Exception:  # pragma: no cover - library may be missing
 
 try:
     from processing.lidar import build_dtm, generate_lrm
+    from processing.image import to_uint8
 except Exception:  # pragma: no cover - library may be missing
     build_dtm = None
     generate_lrm = None
+    to_uint8 = None  # type: ignore
 
 try:
     from pyproj import Transformer
@@ -90,6 +92,11 @@ def lidar_tile_dtm(path: str, resolution: float = 1.0) -> Dict[str, Any]:
         raise RuntimeError("build_dtm utility is not available.")
     dtm, profile = build_dtm(pl, resolution)
 
+    if to_uint8 is not None:
+        dtm_u8 = to_uint8(dtm)
+    else:
+        dtm_u8 = dtm.astype(np.uint8) if np is not None else dtm
+
     cellsize = profile["transform"][0]
     gy, gx = np.gradient(dtm, cellsize)
     slope = np.pi / 2.0 - np.arctan(np.sqrt(gx * gx + gy * gy))
@@ -97,18 +104,23 @@ def lidar_tile_dtm(path: str, resolution: float = 1.0) -> Dict[str, Any]:
     azimuth = np.deg2rad(315.0)
     altitude = np.deg2rad(45.0)
     hillshade = 255.0 * (np.sin(altitude) * np.sin(slope) + np.cos(altitude) * np.cos(slope) * np.cos(azimuth - aspect))
-    hillshade = np.clip(hillshade, 0, 255).astype(np.uint8)
+    if to_uint8 is not None:
+        hillshade_u8 = to_uint8(hillshade)
+    else:
+        hillshade_u8 = np.clip(hillshade, 0, 255).astype(np.uint8)
 
     local_relief = None
     if generate_lrm is not None:
         try:
             local_relief = generate_lrm(dtm, sigma=5)
+            if to_uint8 is not None:
+                local_relief = to_uint8(local_relief)
         except Exception:  # pragma: no cover - dependency may be missing
             local_relief = None
 
     return {
-        "dtm": dtm,
-        "hillshade": hillshade,
+        "dtm": dtm_u8,
+        "hillshade": hillshade_u8,
         "local_relief": local_relief,
         "profile": profile,
     }
@@ -177,3 +189,4 @@ __all__ = [
     "detect_shapes",
     "TOOLS",
 ]
+
