@@ -27,13 +27,21 @@ except Exception:  # pragma: no cover - library may be missing
     pdal = None
 
 try:
-    from processing.lidar import build_dtm, generate_lrm, generate_hillshade
+    from processing.lidar import (
+        build_dtm,
+        generate_lrm,
+        generate_hillshade,
+        write_geotiff,
+    )
     from processing.image import to_uint8
+    from io.lidar import load_laz
 except Exception:  # pragma: no cover - library may be missing
     build_dtm = None
     generate_lrm = None
     generate_hillshade = None
+    write_geotiff = None
     to_uint8 = None  # type: ignore
+    load_laz = None
 
 try:
     from pyproj import Transformer
@@ -216,6 +224,41 @@ def save_snippets(
     return paths
 
 
+def write_geotiff_wrapper(path: str, array: "np.ndarray", profile: Dict[str, Any]) -> None:
+    """Write an array to GeoTIFF using processing.lidar.write_geotiff."""
+    if write_geotiff is None:
+        raise RuntimeError("write_geotiff utility is not available.")
+    write_geotiff(path, array, profile)
+
+
+def generate_lrm_wrapper(dtm: "np.ndarray", sigma: float = 5) -> "np.ndarray":
+    """Wrapper around processing.lidar.generate_lrm."""
+    if generate_lrm is None:
+        raise RuntimeError("generate_lrm utility is not available.")
+    return generate_lrm(dtm, sigma)
+
+
+def generate_hillshade_wrapper(dtm: "np.ndarray", azimuth: int = 315, altitude: int = 45) -> "np.ndarray":
+    """Wrapper around processing.lidar.generate_hillshade."""
+    if generate_hillshade is None:
+        raise RuntimeError("generate_hillshade utility is not available.")
+    return generate_hillshade(dtm, azimuth, altitude)
+
+
+def build_dtm_wrapper(pipeline: Any, resolution: float = 1.0) -> Tuple["np.ndarray", dict]:
+    """Wrapper around processing.lidar.build_dtm."""
+    if build_dtm is None:
+        raise RuntimeError("build_dtm utility is not available.")
+    return build_dtm(pipeline, resolution)
+
+
+def load_laz_wrapper(path: str) -> Any:
+    """Wrapper around io.lidar.load_laz."""
+    if load_laz is None:
+        raise RuntimeError("load_laz utility is not available.")
+    return load_laz(path)
+
+
 TOOLS: Dict[str, Any] = {
     "analyze_lidar": analyze_lidar,
     "analyze_raster": analyze_raster,
@@ -225,6 +268,11 @@ TOOLS: Dict[str, Any] = {
     "lidar_feature_detection": lidar_feature_detection,
     "detect_shapes": detect_shapes,
     "save_snippets": save_snippets,
+    "write_geotiff": write_geotiff_wrapper,
+    "generate_lrm": generate_lrm_wrapper,
+    "generate_hillshade": generate_hillshade_wrapper,
+    "build_dtm": build_dtm_wrapper,
+    "load_laz": load_laz_wrapper,
 }
 
 __all__ = [
@@ -236,6 +284,11 @@ __all__ = [
     "lidar_feature_detection",
     "detect_shapes",
     "save_snippets",
+    "write_geotiff",
+    "generate_lrm",
+    "generate_hillshade",
+    "build_dtm",
+    "load_laz",
     "TOOLS",
 ]
 
