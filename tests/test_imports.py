@@ -19,3 +19,4 @@ def test_imports():
     importlib.import_module("io.lidar")
     importlib.import_module("processing.lidar")
     importlib.import_module("processing.image")
+    importlib.import_module("detection.lidar")
