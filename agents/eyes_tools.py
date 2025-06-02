@@ -39,6 +39,11 @@ try:
 except Exception:  # pragma: no cover - library may be missing
     Transformer = None
 
+try:
+    from detection.lidar import filter_contours
+except Exception:  # pragma: no cover - library may be missing
+    filter_contours = None  # type: ignore
+
 
 def analyze_lidar(path: str, pipeline: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
     """Load and process a LiDAR point cloud using PDAL."""
@@ -185,12 +190,16 @@ def detect_shapes(image: "np.ndarray", profile: Optional[Dict[str, Any]] = None,
         cellsize = profile.get("transform", [1])[0]
 
     min_size, max_size = size_range
+    if filter_contours is not None:
+        px_min = min_size if cellsize is None else min_size / cellsize
+        px_max = max_size if cellsize is None else max_size / cellsize
+        contours = filter_contours(contours, min_size=px_min, max_size=px_max)
     features: List[Dict[str, Any]] = []
     for cnt in contours:
         x, y, w, h = cv2.boundingRect(cnt)
         width = w if cellsize is None else w * cellsize
         height = h if cellsize is None else h * cellsize
-        if max(width, height) < min_size or max(width, height) > max_size:
+        if filter_contours is None and (max(width, height) < min_size or max(width, height) > max_size):
             continue
 
         approx = cv2.approxPolyDP(cnt, 0.02 * cv2.arcLength(cnt, True), True)
