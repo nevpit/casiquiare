@@ -33,5 +33,13 @@ def detect_edges(image: "np.ndarray") -> "np.ndarray":
     edges = cv2.Canny(blurred, 30, 90)
     return edges
 
+def find_contours(edge_img: "np.ndarray") -> list["np.ndarray"]:
+    """Convert an edge image into contours using OpenCV."""
+    if cv2 is None or np is None:
+        raise RuntimeError("OpenCV and NumPy are required.")
 
-__all__ = ["detect_edges"]
+    contours, _ = cv2.findContours(edge_img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    return list(contours)
+
+
+__all__ = ["detect_edges", "find_contours"]
