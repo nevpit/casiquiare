@@ -12,6 +12,7 @@ from .eyes_tools import (
     transform_coordinates,
     detect_image_features,
     lidar_tile_dtm,
+    lidar_feature_detection,
     detect_shapes,
     TOOLS,
 )
@@ -54,6 +55,14 @@ class Eyes:
 
     def lidar_tile_dtm(self, path: str, resolution: float = 1.0) -> Dict[str, Any]:
         return lidar_tile_dtm(path, resolution)
+
+    def lidar_feature_detection(
+        self,
+        path: str,
+        resolution: float = 1.0,
+        size_range: Tuple[float, float] = (50.0, 300.0),
+    ) -> Dict[str, Any]:
+        return lidar_feature_detection(path, resolution, size_range)
 
     def detect_shapes(
         self,
