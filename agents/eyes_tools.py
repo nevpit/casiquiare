@@ -26,11 +26,12 @@ except Exception:  # pragma: no cover - library may be missing
     pdal = None
 
 try:
-    from processing.lidar import build_dtm, generate_lrm
+    from processing.lidar import build_dtm, generate_lrm, generate_hillshade
     from processing.image import to_uint8
 except Exception:  # pragma: no cover - library may be missing
     build_dtm = None
     generate_lrm = None
+    generate_hillshade = None
     to_uint8 = None  # type: ignore
 
 try:
@@ -126,6 +127,45 @@ def lidar_tile_dtm(path: str, resolution: float = 1.0) -> Dict[str, Any]:
     }
 
 
+def lidar_feature_detection(
+    path: str,
+    resolution: float = 1.0,
+    size_range: Tuple[float, float] = (50.0, 300.0),
+) -> Dict[str, Any]:
+    """Generate visualization rasters and detect shapes in a LiDAR tile."""
+    if pdal is None:
+        raise RuntimeError("PDAL is not installed.")
+    if rasterio is None or np is None:
+        raise RuntimeError("rasterio and NumPy are required.")
+    if cv2 is None:
+        raise RuntimeError("OpenCV is required.")
+    if build_dtm is None or generate_lrm is None or generate_hillshade is None:
+        raise RuntimeError("LiDAR utilities are not available.")
+    if to_uint8 is None:
+        raise RuntimeError("to_uint8 utility is not available.")
+
+    pipeline = {"pipeline": [path]}
+    pl = pdal.Pipeline(json.dumps(pipeline))
+    dtm, profile = build_dtm(pl, resolution)
+
+    hillshade = generate_hillshade(dtm)
+    local_relief = generate_lrm(dtm, sigma=5)
+
+    dtm_u8 = to_uint8(dtm)
+    hillshade_u8 = to_uint8(hillshade)
+    local_relief_u8 = to_uint8(local_relief)
+
+    features = detect_shapes(local_relief_u8, profile, size_range)
+
+    return {
+        "dtm": dtm_u8,
+        "hillshade": hillshade_u8,
+        "local_relief": local_relief_u8,
+        "features": features,
+        "profile": profile,
+    }
+
+
 def detect_shapes(image: "np.ndarray", profile: Optional[Dict[str, Any]] = None, size_range: Tuple[float, float] = (50.0, 300.0)) -> List[Dict[str, Any]]:
     """Detect geometric shapes in a relief image."""
     if cv2 is None or np is None:
@@ -177,6 +217,7 @@ TOOLS: Dict[str, Any] = {
     "transform_coordinates": transform_coordinates,
     "detect_image_features": detect_image_features,
     "lidar_tile_dtm": lidar_tile_dtm,
+    "lidar_feature_detection": lidar_feature_detection,
     "detect_shapes": detect_shapes,
 }
 
@@ -186,6 +227,7 @@ __all__ = [
     "transform_coordinates",
     "detect_image_features",
     "lidar_tile_dtm",
+    "lidar_feature_detection",
     "detect_shapes",
     "TOOLS",
 ]
