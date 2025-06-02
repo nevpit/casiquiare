@@ -1,5 +1,5 @@
 """Shape detection utilities."""
 
-from .lidar import detect_edges, find_contours, filter_contours
+from .lidar import Line, detect_edges, find_contours, filter_contours, detect_lines
 
-__all__ = ["detect_edges", "find_contours", "filter_contours"]
+__all__ = ["Line", "detect_edges", "find_contours", "filter_contours", "detect_lines"]
