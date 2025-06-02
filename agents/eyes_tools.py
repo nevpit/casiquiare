@@ -39,6 +39,11 @@ try:
 except Exception:  # pragma: no cover - library may be missing
     Transformer = None
 
+try:
+    from detection import shape_metrics
+except Exception:  # pragma: no cover - library may be missing
+    shape_metrics = None  # type: ignore
+
 
 def analyze_lidar(path: str, pipeline: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
     """Load and process a LiDAR point cloud using PDAL."""
@@ -185,6 +190,8 @@ def detect_shapes(image: "np.ndarray", profile: Optional[Dict[str, Any]] = None,
         cellsize = profile.get("transform", [1])[0]
 
     min_size, max_size = size_range
+    target_center = (min_size + max_size) / 2.0
+    target_half = max((max_size - min_size) / 2.0, 1.0)
     features: List[Dict[str, Any]] = []
     for cnt in contours:
         x, y, w, h = cv2.boundingRect(cnt)
@@ -200,12 +207,37 @@ def detect_shapes(image: "np.ndarray", profile: Optional[Dict[str, Any]] = None,
         elif len(approx) > 4:
             shape = "polygon"
 
+        mask = np.zeros(edges.shape, dtype=np.uint8)
+        cv2.drawContours(mask, [cnt], -1, 255, -1)
+        edge_strength = float(cv2.mean(edges, mask=mask)[0]) / 255.0
+
+        metrics = shape_metrics(cnt) if shape_metrics is not None else {}
+        if metrics:
+            if shape == "circle":
+                shape_reg = metrics.get("circularity", 0.0)
+            elif shape == "rectangle":
+                ratio_score = 1.0 - abs(1.0 - metrics.get("aspect_ratio", 0.0))
+                vert_score = 1.0 - abs(len(approx) - 4) / 4.0
+                shape_reg = (ratio_score + vert_score) / 2.0
+            else:
+                shape_reg = metrics.get("circularity", 0.0)
+        else:
+            shape_reg = 0.0
+        shape_reg = max(0.0, min(1.0, shape_reg))
+
+        size = max(width, height)
+        size_conf = 1.0 - abs(size - target_center) / target_half
+        size_conf = max(0.0, min(1.0, size_conf))
+
+        score = 0.4 * edge_strength + 0.4 * shape_reg + 0.2 * size_conf
+
         features.append({
             "bbox": (x, y, w, h),
             "width": width,
             "height": height,
             "num_vertices": len(approx),
             "shape": shape,
+            "score": float(score),
         })
 
     return features
