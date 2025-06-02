@@ -33,7 +33,6 @@ def detect_edges(image: "np.ndarray") -> "np.ndarray":
     edges = cv2.Canny(blurred, 30, 90)
     return edges
 
-
 def find_contours(edge_img: "np.ndarray") -> list["np.ndarray"]:
     """Convert an edge image into contours using OpenCV."""
     if cv2 is None or np is None:
