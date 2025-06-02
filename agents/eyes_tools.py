@@ -41,9 +41,10 @@ except Exception:  # pragma: no cover - library may be missing
     Transformer = None
 
 try:
-    from detection.lidar import filter_contours
+    from detection import detect_shapes, shape_metrics
 except Exception:  # pragma: no cover - library may be missing
-    filter_contours = None  # type: ignore
+    detect_shapes = None  # type: ignore
+    shape_metrics = None  # type: ignore
 
 
 def analyze_lidar(path: str, pipeline: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
@@ -170,98 +171,6 @@ def lidar_feature_detection(
         "features": features,
         "profile": profile,
     }
-
-
-def detect_shapes(image: "np.ndarray", profile: Optional[Dict[str, Any]] = None, size_range: Tuple[float, float] = (50.0, 300.0)) -> List[Dict[str, Any]]:
-    """Detect geometric shapes in a relief image."""
-    if cv2 is None or np is None:
-        raise RuntimeError("OpenCV and NumPy are required.")
-
-    arr = image.astype(np.float32)
-    arr = cv2.normalize(arr, None, 0, 255, cv2.NORM_MINMAX)
-    arr_u8 = arr.astype(np.uint8)
-
-    edges = cv2.Canny(arr_u8, 100, 200)
-    edges = cv2.dilate(edges, None)
-
-    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-    cellsize = None
-    if profile is not None:
-        cellsize = profile.get("transform", [1])[0]
-
-    min_size, max_size = size_range
-    if filter_contours is not None:
-        px_min = min_size if cellsize is None else min_size / cellsize
-        px_max = max_size if cellsize is None else max_size / cellsize
-        contours = filter_contours(contours, min_size=px_min, max_size=px_max)
-    features: List[Dict[str, Any]] = []
-    for cnt in contours:
-        x, y, w, h = cv2.boundingRect(cnt)
-        width = w if cellsize is None else w * cellsize
-        height = h if cellsize is None else h * cellsize
-        if filter_contours is None and (max(width, height) < min_size or max(width, height) > max_size):
-            continue
-
-        approx = cv2.approxPolyDP(cnt, 0.02 * cv2.arcLength(cnt, True), True)
-        shape = "circle"
-        if len(approx) == 4:
-            shape = "rectangle"
-        elif len(approx) > 4:
-            shape = "polygon"
-
-        features.append({
-            "bbox": (x, y, w, h),
-            "width": width,
-            "height": height,
-            "num_vertices": len(approx),
-            "shape": shape,
-        })
-
-    return features
-
-
-def save_snippets(
-    image: "np.ndarray",
-    features: List[Dict[str, Any]],
-    out_dir: str,
-    size: int = 256,
-) -> List[str]:
-    """Save 2D crops around detected features as PNG files."""
-    if cv2 is None or np is None:
-        raise RuntimeError("OpenCV and NumPy are required.")
-    if to_uint8 is None:
-        raise RuntimeError("to_uint8 utility is not available.")
-
-    arr = image.astype(np.float32)
-    if arr.dtype != np.uint8:
-        arr = to_uint8(arr)
-
-    os.makedirs(out_dir, exist_ok=True)
-    height, width = arr.shape[:2]
-    half = size // 2
-    paths: List[str] = []
-
-    for idx, feat in enumerate(features):
-        bbox = feat.get("bbox")
-        if not bbox:
-            continue
-        x, y, w, h = bbox
-        cx = int(x + w // 2)
-        cy = int(y + h // 2)
-        x_min = max(cx - half, 0)
-        y_min = max(cy - half, 0)
-        x_max = min(cx + half, width)
-        y_max = min(cy + half, height)
-        crop = arr[y_min:y_max, x_min:x_max]
-        if crop.size == 0:
-            continue
-        crop = cv2.resize(crop, (size, size), interpolation=cv2.INTER_NEAREST)
-        fname = os.path.join(out_dir, f"candidate_{idx:03d}.png")
-        cv2.imwrite(fname, crop)
-        paths.append(fname)
-
-    return paths
 
 
 TOOLS: Dict[str, Any] = {
