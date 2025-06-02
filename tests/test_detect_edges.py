@@ -10,6 +10,12 @@ def test_detect_edges_runtime():
         with pytest.raises(RuntimeError):
             detection_lidar.detect_edges(arr)
     else:
-        result = detection_lidar.detect_edges(arr)
+        result = detection_lidar.detect_edges(
+            arr,
+            blur_kernel_size=(3, 3),
+            canny_threshold1=30,
+            canny_threshold2=90,
+            dilation_iterations=1,
+        )
         assert isinstance(result, np.ndarray)
         assert result.shape == arr.shape
