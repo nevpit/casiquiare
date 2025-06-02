@@ -39,6 +39,11 @@ try:
 except Exception:  # pragma: no cover - library may be missing
     Transformer = None
 
+try:
+    from detection.lidar import detect_edges as _detect_edges
+except Exception:  # pragma: no cover - library may be missing
+    _detect_edges = None
+
 
 def analyze_lidar(path: str, pipeline: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
     """Load and process a LiDAR point cloud using PDAL."""
@@ -211,6 +216,13 @@ def detect_shapes(image: "np.ndarray", profile: Optional[Dict[str, Any]] = None,
     return features
 
 
+def detect_edges(image: "Any") -> "Any":
+    """Wrapper for detection.lidar.detect_edges."""
+    if _detect_edges is None:
+        raise RuntimeError("detect_edges utility is not available.")
+    return _detect_edges(image)
+
+
 TOOLS: Dict[str, Any] = {
     "analyze_lidar": analyze_lidar,
     "analyze_raster": analyze_raster,
@@ -219,6 +231,7 @@ TOOLS: Dict[str, Any] = {
     "lidar_tile_dtm": lidar_tile_dtm,
     "lidar_feature_detection": lidar_feature_detection,
     "detect_shapes": detect_shapes,
+    "detect_edges": detect_edges,
 }
 
 __all__ = [
@@ -229,6 +242,7 @@ __all__ = [
     "lidar_tile_dtm",
     "lidar_feature_detection",
     "detect_shapes",
+    "detect_edges",
     "TOOLS",
 ]
 

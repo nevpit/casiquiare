@@ -14,6 +14,7 @@ from .eyes_tools import (
     lidar_tile_dtm,
     lidar_feature_detection,
     detect_shapes,
+    detect_edges,
     TOOLS,
 )
 
@@ -71,6 +72,9 @@ class Eyes:
         size_range: Tuple[float, float] = (50.0, 300.0),
     ) -> List[Dict[str, Any]]:
         return detect_shapes(image, profile, size_range)
+
+    def detect_edges(self, image: "Any") -> "Any":
+        return detect_edges(image)
 
     # -----------------------------------------------------------------------
 
