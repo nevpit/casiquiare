@@ -173,6 +173,49 @@ def lidar_feature_detection(
     }
 
 
+def save_snippets(
+    image: "np.ndarray",
+    features: List[Dict[str, Any]],
+    out_dir: str,
+    size: int = 256,
+) -> List[str]:
+    """Save 2D crops around detected features as PNG files."""
+    if cv2 is None or np is None:
+        raise RuntimeError("OpenCV and NumPy are required.")
+    if to_uint8 is None:
+        raise RuntimeError("to_uint8 utility is not available.")
+
+    arr = image.astype(np.float32)
+    if arr.dtype != np.uint8:
+        arr = to_uint8(arr)
+
+    os.makedirs(out_dir, exist_ok=True)
+    height, width = arr.shape[:2]
+    half = size // 2
+    paths: List[str] = []
+
+    for idx, feat in enumerate(features):
+        bbox = feat.get("bbox")
+        if not bbox:
+            continue
+        x, y, w, h = bbox
+        cx = int(x + w // 2)
+        cy = int(y + h // 2)
+        x_min = max(cx - half, 0)
+        y_min = max(cy - half, 0)
+        x_max = min(cx + half, width)
+        y_max = min(cy + half, height)
+        crop = arr[y_min:y_max, x_min:x_max]
+        if crop.size == 0:
+            continue
+        crop = cv2.resize(crop, (size, size), interpolation=cv2.INTER_NEAREST)
+        fname = os.path.join(out_dir, f"candidate_{idx:03d}.png")
+        cv2.imwrite(fname, crop)
+        paths.append(fname)
+
+    return paths
+
+
 TOOLS: Dict[str, Any] = {
     "analyze_lidar": analyze_lidar,
     "analyze_raster": analyze_raster,
