@@ -27,13 +27,21 @@ except Exception:  # pragma: no cover - library may be missing
     pdal = None
 
 try:
-    from processing.lidar import build_dtm, generate_lrm, generate_hillshade
+    from processing.lidar import (
+        build_dtm,
+        generate_lrm,
+        generate_hillshade,
+        write_geotiff,
+    )
     from processing.image import to_uint8
+    from io.lidar import load_laz
 except Exception:  # pragma: no cover - library may be missing
     build_dtm = None
     generate_lrm = None
     generate_hillshade = None
+    write_geotiff = None
     to_uint8 = None  # type: ignore
+    load_laz = None
 
 try:
     from pyproj import Transformer
@@ -173,6 +181,84 @@ def lidar_feature_detection(
     }
 
 
+def save_snippets(
+    image: "np.ndarray",
+    features: List[Dict[str, Any]],
+    out_dir: str,
+    size: int = 256,
+) -> List[str]:
+    """Save 2D crops around detected features as PNG files."""
+    if cv2 is None or np is None:
+        raise RuntimeError("OpenCV and NumPy are required.")
+    if to_uint8 is None:
+        raise RuntimeError("to_uint8 utility is not available.")
+
+    arr = image.astype(np.float32)
+    if arr.dtype != np.uint8:
+        arr = to_uint8(arr)
+
+    os.makedirs(out_dir, exist_ok=True)
+    height, width = arr.shape[:2]
+    half = size // 2
+    paths: List[str] = []
+
+    for idx, feat in enumerate(features):
+        bbox = feat.get("bbox")
+        if not bbox:
+            continue
+        x, y, w, h = bbox
+        cx = int(x + w // 2)
+        cy = int(y + h // 2)
+        x_min = max(cx - half, 0)
+        y_min = max(cy - half, 0)
+        x_max = min(cx + half, width)
+        y_max = min(cy + half, height)
+        crop = arr[y_min:y_max, x_min:x_max]
+        if crop.size == 0:
+            continue
+        crop = cv2.resize(crop, (size, size), interpolation=cv2.INTER_NEAREST)
+        fname = os.path.join(out_dir, f"candidate_{idx:03d}.png")
+        cv2.imwrite(fname, crop)
+        paths.append(fname)
+
+    return paths
+
+
+def write_geotiff_wrapper(path: str, array: "np.ndarray", profile: Dict[str, Any]) -> None:
+    """Write an array to GeoTIFF using processing.lidar.write_geotiff."""
+    if write_geotiff is None:
+        raise RuntimeError("write_geotiff utility is not available.")
+    write_geotiff(path, array, profile)
+
+
+def generate_lrm_wrapper(dtm: "np.ndarray", sigma: float = 5) -> "np.ndarray":
+    """Wrapper around processing.lidar.generate_lrm."""
+    if generate_lrm is None:
+        raise RuntimeError("generate_lrm utility is not available.")
+    return generate_lrm(dtm, sigma)
+
+
+def generate_hillshade_wrapper(dtm: "np.ndarray", azimuth: int = 315, altitude: int = 45) -> "np.ndarray":
+    """Wrapper around processing.lidar.generate_hillshade."""
+    if generate_hillshade is None:
+        raise RuntimeError("generate_hillshade utility is not available.")
+    return generate_hillshade(dtm, azimuth, altitude)
+
+
+def build_dtm_wrapper(pipeline: Any, resolution: float = 1.0) -> Tuple["np.ndarray", dict]:
+    """Wrapper around processing.lidar.build_dtm."""
+    if build_dtm is None:
+        raise RuntimeError("build_dtm utility is not available.")
+    return build_dtm(pipeline, resolution)
+
+
+def load_laz_wrapper(path: str) -> Any:
+    """Wrapper around io.lidar.load_laz."""
+    if load_laz is None:
+        raise RuntimeError("load_laz utility is not available.")
+    return load_laz(path)
+
+
 TOOLS: Dict[str, Any] = {
     "analyze_lidar": analyze_lidar,
     "analyze_raster": analyze_raster,
@@ -182,6 +268,11 @@ TOOLS: Dict[str, Any] = {
     "lidar_feature_detection": lidar_feature_detection,
     "detect_shapes": detect_shapes,
     "save_snippets": save_snippets,
+    "write_geotiff": write_geotiff_wrapper,
+    "generate_lrm": generate_lrm_wrapper,
+    "generate_hillshade": generate_hillshade_wrapper,
+    "build_dtm": build_dtm_wrapper,
+    "load_laz": load_laz_wrapper,
 }
 
 __all__ = [
@@ -193,6 +284,11 @@ __all__ = [
     "lidar_feature_detection",
     "detect_shapes",
     "save_snippets",
+    "write_geotiff",
+    "generate_lrm",
+    "generate_hillshade",
+    "build_dtm",
+    "load_laz",
     "TOOLS",
 ]
 

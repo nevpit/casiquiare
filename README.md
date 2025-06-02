@@ -19,6 +19,10 @@ The `write_geotiff` function in `processing/lidar.py` saves an array to a
 GeoTIFF file using a provided rasterio profile so the CRS and transform are
 preserved.
 
+Additional helpers such as `load_laz`, `generate_lrm`, `generate_hillshade`, and
+`build_dtm` expose low-level I/O and terrain modelling capabilities through the
+Eyes toolkit.
+
 Use `save_snippets` to crop 256 × 256 PNG images around features returned
 by `detect_shapes` for quick visual inspection.
 
