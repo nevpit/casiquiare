@@ -42,4 +42,21 @@ def find_contours(edge_img: "np.ndarray") -> list["np.ndarray"]:
     return list(contours)
 
 
-__all__ = ["detect_edges", "find_contours"]
+def filter_contours(
+    contours: list["np.ndarray"], min_size: float = 50, max_size: float = 300
+) -> list["np.ndarray"]:
+    """Filter contours by bounding-box size."""
+    if cv2 is None or np is None:
+        raise RuntimeError("OpenCV and NumPy are required.")
+
+    filtered: list["np.ndarray"] = []
+    for cnt in contours:
+        x, y, w, h = cv2.boundingRect(cnt)
+        if max(w, h) < min_size or max(w, h) > max_size:
+            continue
+        filtered.append(cnt)
+
+    return filtered
+
+
+__all__ = ["detect_edges", "find_contours", "filter_contours"]
