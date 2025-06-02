@@ -15,9 +15,10 @@ profile allows the results to be expressed in meters so features outside the
 50–300 m range can be filtered out.
 
 Utility modules under `processing` extend the toolkit with low-level I/O helpers.
+
 The `write_geotiff` function in `processing/lidar.py` saves an array to a
 GeoTIFF file using a provided rasterio profile so the CRS and transform are
-preserved.
+preserved. LiDAR file readers are provided in `io_helpers/lidar.py`.
 
 Additional helpers such as `load_laz`, `generate_lrm`, `generate_hillshade`, and
 `build_dtm` expose low-level I/O and terrain modelling capabilities through the
