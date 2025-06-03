@@ -35,6 +35,7 @@ try:
     )
     from processing.image import to_uint8
     from io.lidar import load_laz
+    from io.raster import load_raster
 except Exception:  # pragma: no cover - library may be missing
     build_dtm = None
     generate_lrm = None
@@ -42,6 +43,7 @@ except Exception:  # pragma: no cover - library may be missing
     write_geotiff = None
     to_uint8 = None  # type: ignore
     load_laz = None
+    load_raster = None
 
 try:
     from pyproj import Transformer
@@ -259,6 +261,15 @@ def load_laz_wrapper(path: str) -> Any:
     return load_laz(path)
 
 
+def load_raster_wrapper(
+    path: str,
+) -> Tuple["np.ndarray", "affine.Affine", "rasterio.crs.CRS"]:
+    """Wrapper around io.raster.load_raster."""
+    if load_raster is None:
+        raise RuntimeError("load_raster utility is not available.")
+    return load_raster(path)
+
+
 TOOLS: Dict[str, Any] = {
     "analyze_lidar": analyze_lidar,
     "analyze_raster": analyze_raster,
@@ -273,6 +284,7 @@ TOOLS: Dict[str, Any] = {
     "generate_hillshade": generate_hillshade_wrapper,
     "build_dtm": build_dtm_wrapper,
     "load_laz": load_laz_wrapper,
+    "load_raster": load_raster_wrapper,
 }
 
 __all__ = [
@@ -289,6 +301,7 @@ __all__ = [
     "generate_hillshade",
     "build_dtm",
     "load_laz",
+    "load_raster",
     "TOOLS",
 ]
 
