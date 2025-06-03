@@ -1,0 +1,31 @@
+schema_version: v1
+name_for_human: Casiquiare Tools
+name_for_model: casiquiare_tools
+description_for_human: Utilities for Amazon archaeology remote-sensing tasks.
+description_for_model: Tools for analyzing LiDAR and imagery to detect features.
+tools:
+  - type: python
+    function:
+      name: scan_area
+      description: Scan a LiDAR tile and detect geometric features.
+      entrypoint: agents.eyes_tools:scan_area
+      parameters:
+        type: object
+        properties:
+          path:
+            type: string
+            description: Path to the LiDAR file to scan.
+          resolution:
+            type: number
+            description: Output raster resolution in meters.
+            default: 1.0
+          min_size:
+            type: number
+            description: Minimum feature size in meters.
+            default: 50.0
+          max_size:
+            type: number
+            description: Maximum feature size in meters.
+            default: 300.0
+        required:
+          - path

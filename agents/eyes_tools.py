@@ -172,6 +172,17 @@ def lidar_feature_detection(
     }
 
 
+def scan_area(
+    path: str,
+    resolution: float = 1.0,
+    min_size: float = 50.0,
+    max_size: float = 300.0,
+) -> Dict[str, Any]:
+    """Scan an area for geometric features using LiDAR data."""
+    size_range = (min_size, max_size)
+    return lidar_feature_detection(path, resolution, size_range)
+
+
 TOOLS: Dict[str, Any] = {
     "analyze_lidar": analyze_lidar,
     "analyze_raster": analyze_raster,
@@ -180,6 +191,7 @@ TOOLS: Dict[str, Any] = {
     "lidar_tile_dtm": lidar_tile_dtm,
     "lidar_feature_detection": lidar_feature_detection,
     "detect_shapes": detect_shapes,
+    "scan_area": scan_area,
 }
 
 __all__ = [
@@ -190,6 +202,7 @@ __all__ = [
     "lidar_tile_dtm",
     "lidar_feature_detection",
     "detect_shapes",
+    "scan_area",
     "TOOLS",
 ]
 
