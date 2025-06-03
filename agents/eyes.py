@@ -40,20 +40,25 @@ class Eyes:
     # Thin wrappers around utility functions ---------------------------------
 
     def analyze_lidar(self, path: str, pipeline: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+        """Delegate to :func:`agents.eyes_tools.analyze_lidar`."""
         return analyze_lidar(path, pipeline)
 
     def analyze_raster(self, path: str) -> Dict[str, Any]:
+        """Delegate to :func:`agents.eyes_tools.analyze_raster`."""
         return analyze_raster(path)
 
     def transform_coordinates(
         self, x: float, y: float, from_epsg: int = 4326, to_epsg: int = 3857
     ) -> Tuple[float, float]:
+        """Delegate to :func:`agents.eyes_tools.transform_coordinates`."""
         return transform_coordinates(x, y, from_epsg, to_epsg)
 
     def detect_image_features(self, path: str) -> Dict[str, Any]:
+        """Delegate to :func:`agents.eyes_tools.detect_image_features`."""
         return detect_image_features(path)
 
     def lidar_tile_dtm(self, path: str, resolution: float = 1.0) -> Dict[str, Any]:
+        """Delegate to :func:`agents.eyes_tools.lidar_tile_dtm`."""
         return lidar_tile_dtm(path, resolution)
 
     def lidar_feature_detection(
@@ -62,6 +67,7 @@ class Eyes:
         resolution: float = 1.0,
         size_range: Tuple[float, float] = (50.0, 300.0),
     ) -> Dict[str, Any]:
+        """Delegate to :func:`agents.eyes_tools.lidar_feature_detection`."""
         return lidar_feature_detection(path, resolution, size_range)
 
     def detect_shapes(
@@ -70,6 +76,7 @@ class Eyes:
         profile: Optional[Dict[str, Any]] = None,
         size_range: Tuple[float, float] = (50.0, 300.0),
     ) -> List[Dict[str, Any]]:
+        """Delegate to :func:`agents.eyes_tools.detect_shapes`."""
         return detect_shapes(image, profile, size_range)
 
     # -----------------------------------------------------------------------

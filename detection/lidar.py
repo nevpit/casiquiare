@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Dict
+
 try:
     import cv2
 except Exception:  # pragma: no cover - library may be missing
@@ -13,8 +15,15 @@ except Exception:  # pragma: no cover - library may be missing
     np = None  # type: ignore
 
 
-def shape_metrics(contour: "np.ndarray") -> dict:
-    """Return basic geometric metrics for a contour."""
+def shape_metrics(contour: "np.ndarray") -> Dict[str, float]:
+    """Return basic geometric metrics for a contour.
+
+    Args:
+        contour: OpenCV contour array.
+
+    Returns:
+        Dictionary with area, perimeter, aspect ratio and circularity.
+    """
     if cv2 is None or np is None:
         raise RuntimeError("OpenCV and NumPy are required.")
 
