@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any, Dict, List
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 try:
     import numpy as np
@@ -59,5 +60,36 @@ def scan_area(area_id: str | Dict[str, Any]) -> List[Feature]:
     raise TypeError("area_id must be a str path or a dictionary")
 
 
-__all__ = ["scan_area"]
+def scan_tiles_concurrent(
+    area_ids: List[str | Dict[str, Any]], max_workers: int | None = None
+) -> List[List[Feature]]:
+    """Scan multiple areas concurrently.
+
+    Parameters
+    ----------
+    area_ids:
+        Sequence of raster paths or image dictionaries accepted by
+        :func:`scan_area`.
+    max_workers:
+        Maximum number of worker threads. Defaults to ``None`` for the
+        executor to decide.
+
+    Returns
+    -------
+    list of list of :class:`Feature`
+        Detection results in the same order as ``area_ids``.
+    """
+
+    results: List[List[Feature]] = [list() for _ in area_ids]
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_idx = {
+            executor.submit(scan_area, aid): idx for idx, aid in enumerate(area_ids)
+        }
+        for future in as_completed(future_to_idx):
+            idx = future_to_idx[future]
+            results[idx] = future.result()
+    return results
+
+
+__all__ = ["scan_area", "scan_tiles_concurrent"]
 
