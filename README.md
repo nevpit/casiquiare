@@ -25,3 +25,13 @@ Some advanced features, such as generating hillshades and local relief models,
 rely on `scipy` and the `gdal` library (available as the `osgeo` module). Install
 these packages alongside the standard requirements if you need the full
 functionality of the processing utilities.
+
+## CLI usage
+
+Run scans manually with the ``eyes-agent`` helper script. The basic syntax is::
+
+    eyes-agent scan <area_id> [--save-geojson] [--save-snippets]
+
+``area_id`` must exist in ``config/data_paths.yaml``. Use the optional flags to
+export detected features as a GeoJSON file and to save small PNG snippets around
+each hit.

@@ -20,7 +20,20 @@ def load_mapping(path: Optional[str] = None) -> Dict[str, str]:
         raise RuntimeError("PyYAML is not installed.")
     cfg_path = Path(path) if path is not None else _CONFIG_FILE
     with cfg_path.open("r", encoding="utf-8") as f:
-        data = yaml.safe_load(f) or {}
+        try:
+            data = yaml.safe_load(f) or {}
+        except Exception:
+            f.seek(0)
+            data = {}
+            for line in f:
+                line = line.strip()
+                if not line or ":" not in line:
+                    continue
+                key, val = line.split(":", 1)
+                key = key.strip()
+                if key.startswith("[") and key.endswith("]"):
+                    key = key.replace(" ", "")
+                data[key] = val.strip()
     if not isinstance(data, dict):
         raise ValueError("Mapping file must define a dictionary")
     return {str(k): str(v) for k, v in data.items()}
@@ -38,7 +51,7 @@ def get_data_path(
         except KeyError:
             raise KeyError(f"Tile ID {tile_id} not found")
     if bbox is not None:
-        key = str(list(bbox))
+        key = "[" + ",".join(str(v) for v in bbox) + "]"
         try:
             return map_data[key]
         except KeyError:
