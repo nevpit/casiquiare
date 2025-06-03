@@ -4,5 +4,6 @@ numpy
 rasterio
 python-pdal
 pyproj
+pyyaml
 scipy
 pytest
