@@ -9,6 +9,10 @@ detection. They are callable directly or via `Eyes.tools` and wrapped as
 methods on the `Eyes` agent. The shape detection logic now resides in the
 `detection` package and is re-exported for convenience.
 
+New tools focus on identifying vegetation or soil anomalies with Sentinel-2
+multi-spectral imagery. The helper `io.raster.load_raster` loads these rasters
+with their coordinate metadata intact for downstream analysis.
+
 The `detect_shapes` function scans a hillshade or local relief image for
 geometric forms and reports their approximate size. Supplying the raster
 profile allows the results to be expressed in meters so features outside the
