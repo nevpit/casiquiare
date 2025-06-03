@@ -28,7 +28,7 @@ def pixel_to_coords(
 
     x, y = transform * (col + 0.5, row + 0.5)
     lon, lat = rio_transform(crs, "EPSG:4326", [x], [y])
-    return float(lon[0]), float(lat[0])
+    return round(float(lon[0]), 6), round(float(lat[0]), 6)
 
 
 def contour_to_polygon(
@@ -52,7 +52,10 @@ def contour_to_polygon(
         ys.append(y)
 
     lon, lat = rio_transform(crs, "EPSG:4326", xs, ys)
-    ring = [[float(lon[i]), float(lat[i])] for i in range(len(lon))]
+    ring = [
+        [round(float(lon[i]), 6), round(float(lat[i]), 6)]
+        for i in range(len(lon))
+    ]
     if ring and ring[0] != ring[-1]:
         ring.append(ring[0])
     return ring

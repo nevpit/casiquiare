@@ -82,7 +82,10 @@ def transform_coordinates(x: float, y: float, from_epsg: int = 4326, to_epsg: in
     if Transformer is None:
         raise RuntimeError("pyproj is not installed.")
     transformer = Transformer.from_crs(from_epsg, to_epsg, always_xy=True)
-    return transformer.transform(x, y)
+    x_out, y_out = transformer.transform(x, y)
+    if to_epsg == 4326:
+        return round(x_out, 6), round(y_out, 6)
+    return x_out, y_out
 
 
 def detect_image_features(path: str) -> Dict[str, Any]:
