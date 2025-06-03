@@ -2,6 +2,7 @@
 
 from .shapes import detect_shapes
 from .merge import merge_detections
+from .feature import Feature
 
 __all__ = [
     "Line",
@@ -12,4 +13,5 @@ __all__ = [
     "shape_metrics",
     "detect_shapes",
     "merge_detections",
+    "Feature",
 ]
