@@ -32,7 +32,9 @@ Additional helpers such as `load_laz`, `generate_lrm`, `generate_hillshade`, and
 Eyes toolkit.
 
 Use `save_snippets` to crop 256 × 256 PNG images around features returned
-by `detect_shapes` for quick visual inspection.
+by `detect_shapes` for quick visual inspection. Detection results can be
+saved with `output.serialize_features` or exported as a GeoJSON
+`FeatureCollection` using `output.save_geojson`.
 
 ## Optional dependencies
 
