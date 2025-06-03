@@ -92,12 +92,26 @@ def detect_image_features(path: str) -> Dict[str, Any]:
     """Detect simple features in an image using OpenCV."""
     if cv2 is None or np is None:
         raise RuntimeError("OpenCV and NumPy are required.")
+
     img = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
     if img is None:
         raise ValueError(f"Unable to read image at {path}")
+
     edges = cv2.Canny(img, 100, 200)
     contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    return {"num_contours": len(contours)}
+
+    features: List[Dict[str, Any]] = []
+    for cnt in contours:
+        x, y, w, h = cv2.boundingRect(cnt)
+        area = float(cv2.contourArea(cnt))
+        features.append({
+            "bbox": (int(x), int(y), int(w), int(h)),
+            "width": int(w),
+            "height": int(h),
+            "area": area,
+        })
+
+    return {"num_contours": len(contours), "features": features}
 
 
 def lidar_tile_dtm(path: str, resolution: float = 1.0) -> Dict[str, Any]:
