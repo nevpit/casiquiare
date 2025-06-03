@@ -5,6 +5,8 @@ from __future__ import annotations
 from typing import Any, Dict, List
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+from log_config import setup_logger
+
 try:
     import numpy as np
 except Exception:  # pragma: no cover - library may be missing
@@ -13,6 +15,8 @@ except Exception:  # pragma: no cover - library may be missing
 from detection import Feature
 from detection.shapes import detect_shapes
 from io.raster import load_raster
+
+logger = setup_logger(__name__)
 
 
 def _to_feature(idx: int, item: Dict[str, Any], source: str) -> Feature:
@@ -36,7 +40,9 @@ def _scan_image(image: "np.ndarray", profile: Dict[str, Any] | None = None, sour
     if detect_shapes is None or np is None:
         raise RuntimeError("OpenCV and NumPy are required.")
 
+    logger.debug("Running shape detection")
     results = detect_shapes(image, profile)
+    logger.debug("Detected %d shapes", len(results))
     return [_to_feature(i + 1, feat, source) for i, feat in enumerate(results)]
 
 
@@ -48,14 +54,21 @@ def scan_area(area_id: str | Dict[str, Any]) -> List[Feature]:
         data, transform, crs = load_raster(area_id)
         profile = {"transform": transform, "crs": crs}
         image = data[0] if data.ndim == 3 else data
-        return _scan_image(image, profile, source="raster")
+        logger.info("Scanning raster %s", area_id)
+        features = _scan_image(image, profile, source="raster")
+        logger.info("%d features found in %s", len(features), area_id)
+        return features
 
     if isinstance(area_id, dict):
         image = area_id.get("image")
         if image is None:
             raise ValueError("area_id dictionary requires an 'image' entry")
         profile = area_id.get("profile")
-        return _scan_image(image, profile, source=area_id.get("source", "raster"))
+        source = area_id.get("source", "raster")
+        logger.info("Scanning %s image", source)
+        features = _scan_image(image, profile, source=source)
+        logger.info("%d features found in %s image", len(features), source)
+        return features
 
     raise TypeError("area_id must be a str path or a dictionary")
 
@@ -80,6 +93,7 @@ def scan_tiles_concurrent(
         Detection results in the same order as ``area_ids``.
     """
 
+    logger.info("Scanning %d tiles", len(area_ids))
     results: List[List[Feature]] = [list() for _ in area_ids]
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_to_idx = {
@@ -88,6 +102,8 @@ def scan_tiles_concurrent(
         for future in as_completed(future_to_idx):
             idx = future_to_idx[future]
             results[idx] = future.result()
+            logger.debug("Finished tile %d", idx)
+    logger.info("Completed scanning tiles")
     return results
 
 
