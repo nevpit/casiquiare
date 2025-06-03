@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import logging
 import sys
 from pathlib import Path
 
@@ -18,18 +19,22 @@ if _spec and _spec.loader:
 
 from .tools import scan_area
 from output import save_geojson
+from log_config import setup_logger
+
+logger = setup_logger(__name__)
 
 
 
 def _run_scan(args: argparse.Namespace) -> None:
     """Execute the scan command."""
+    logger.info("Scanning %s", args.area_id)
     features = scan_area(args.area_id)
-    print(f"Detected {len(features)} features")
+    logger.info("Detected %d features", len(features))
 
     if args.save_geojson:
         out_file = Path(f"{Path(args.area_id).stem}_features.geojson")
         save_geojson(features, str(out_file))
-        print(f"GeoJSON saved to {out_file}")
+        logger.info("GeoJSON saved to %s", out_file)
 
     if args.save_snippets:
         from importlib import import_module
@@ -46,7 +51,7 @@ def _run_scan(args: argparse.Namespace) -> None:
         ]
         out_dir = Path(f"{Path(args.area_id).stem}_snippets")
         save_snippets(image, feat_dicts, str(out_dir))
-        print(f"Snippets saved to {out_dir}")
+        logger.info("Snippets saved to %s", out_dir)
 
 
 def main(argv: list[str] | None = None) -> None:

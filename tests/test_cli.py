@@ -5,13 +5,13 @@ from eyes_agent import cli
 from detection.feature import Feature
 
 
-def test_scan_cli_basic(capsys):
+def test_scan_cli_basic(caplog):
     with mock.patch("eyes_agent.cli.scan_area") as scan:
         scan.return_value = []
-        cli.main(["scan", "area.tif"])
+        with caplog.at_level("INFO", logger="eyes_agent.cli"):
+            cli.main(["scan", "area.tif"])
         scan.assert_called_with("area.tif")
-        out = capsys.readouterr().out
-        assert "Detected 0 features" in out
+        assert "Detected 0 features" in caplog.text
 
 
 def test_scan_cli_save_options(tmp_path):
