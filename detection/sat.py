@@ -37,13 +37,17 @@ def detect_edges(image: "np.ndarray") -> "np.ndarray":
 from .lidar import detect_lines, filter_contours, find_contours
 
 
-def detect_geometric_outlines(edge_img: "np.ndarray") -> dict:
+def detect_geometric_outlines(
+    edge_img: "np.ndarray",
+    min_size: float = 50.0,
+    max_size: float = 300.0,
+) -> dict:
     """Detect large geometric clearings from an edge image."""
     if cv2 is None or np is None:
         raise RuntimeError("OpenCV and NumPy are required.")
 
     contours = find_contours(edge_img)
-    contours = filter_contours(contours, min_size=50, max_size=max(edge_img.shape))
+    contours = filter_contours(contours, min_size=min_size, max_size=max_size)
 
     outline_contours = []
     for cnt in contours:
