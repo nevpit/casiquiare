@@ -21,7 +21,17 @@ def detect_shapes(
     profile: Optional[Dict[str, Any]] = None,
     size_range: Tuple[float, float] = (50.0, 300.0),
 ) -> List[Dict[str, Any]]:
-    """Detect geometric shapes in a relief image."""
+    """Detect geometric shapes in a relief image.
+
+    Args:
+        image: Grayscale relief image as a NumPy array.
+        profile: Optional rasterio profile describing the pixel size.
+        size_range: Minimum and maximum feature size in the units of the
+            ``profile`` transform or pixels if ``profile`` is ``None``.
+
+    Returns:
+        A list of detected shape feature dictionaries.
+    """
     if cv2 is None or np is None:
         raise RuntimeError("OpenCV and NumPy are required.")
 
