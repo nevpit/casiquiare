@@ -58,6 +58,8 @@ def detect_shapes(
 
         mask = np.zeros(edges.shape, dtype=np.uint8)
         cv2.drawContours(mask, [cnt], -1, 255, -1)
+        # Normalized mean of Canny edge values within the contour.
+        # Higher values indicate sharper, well-defined boundaries.
         edge_strength = float(cv2.mean(edges, mask=mask)[0]) / 255.0
 
         metrics = shape_metrics(cnt) if shape_metrics is not None else {}
@@ -72,12 +74,15 @@ def detect_shapes(
                 shape_reg = metrics.get("circularity", 0.0)
         else:
             shape_reg = 0.0
+        # Regularity score of the shape; ensures we favor well-formed geometries.
         shape_reg = max(0.0, min(1.0, shape_reg))
 
         size = max(width, height)
         size_conf = 1.0 - abs(size - target_center) / target_half
         size_conf = max(0.0, min(1.0, size_conf))
 
+        # Final detection confidence.  Edges and shape regularity are
+        # considered equally important (40% each), while size contributes 20%.
         score = 0.4 * edge_strength + 0.4 * shape_reg + 0.2 * size_conf
 
         features.append(
