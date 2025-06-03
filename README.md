@@ -36,6 +36,9 @@ by `detect_shapes` for quick visual inspection. Detection results can be
 saved with `output.serialize_features` or exported as a GeoJSON
 `FeatureCollection` using `output.save_geojson`.
 
+`scan_tiles_concurrent` leverages `concurrent.futures` to run `scan_area` on
+multiple raster tiles in parallel, returning the detections in input order.
+
 ## Optional dependencies
 
 Some advanced features, such as generating hillshades and local relief models,
