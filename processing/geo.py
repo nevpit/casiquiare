@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 try:
     import rasterio
     from rasterio.transform import Affine
@@ -29,4 +31,31 @@ def pixel_to_coords(
     return float(lon[0]), float(lat[0])
 
 
-__all__ = ["pixel_to_coords"]
+def contour_to_polygon(
+    contour: "Any",
+    transform: "Affine",
+    crs: "CRS",
+) -> list[list[float]]:
+    """Convert an OpenCV contour to GeoJSON polygon coordinates."""
+    if rasterio is None:
+        raise RuntimeError("rasterio is not installed.")
+
+    if contour is None:
+        raise ValueError("contour is required")
+
+    coords = contour.reshape(-1, 2)
+    xs = []
+    ys = []
+    for col, row in coords:
+        x, y = transform * (float(col) + 0.5, float(row) + 0.5)
+        xs.append(x)
+        ys.append(y)
+
+    lon, lat = rio_transform(crs, "EPSG:4326", xs, ys)
+    ring = [[float(lon[i]), float(lat[i])] for i in range(len(lon))]
+    if ring and ring[0] != ring[-1]:
+        ring.append(ring[0])
+    return ring
+
+
+__all__ = ["pixel_to_coords", "contour_to_polygon"]
