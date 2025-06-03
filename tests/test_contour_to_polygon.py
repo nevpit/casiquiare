@@ -20,3 +20,6 @@ def test_contour_to_polygon_runtime():
         lon0, lat0 = poly[0]
         assert abs(lon0 - 10.5) < 1e-6
         assert abs(lat0 - 19.5) < 1e-6
+        for lon, lat in poly:
+            assert lon == round(lon, 6)
+            assert lat == round(lat, 6)

@@ -13,4 +13,6 @@ def test_pixel_to_coords_runtime():
         lon, lat = geo.pixel_to_coords(0, 0, transform, crs)
         assert abs(lon - 10.5) < 1e-6
         assert abs(lat - 19.5) < 1e-6
+        assert lon == round(lon, 6)
+        assert lat == round(lat, 6)
 
