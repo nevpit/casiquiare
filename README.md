@@ -18,6 +18,9 @@ geometric forms and reports their approximate size. Supplying the raster
 profile allows the results to be expressed in meters so features outside the
 50–300 m range can be filtered out.
 
+`merge_detections` combines LiDAR and satellite candidates when their
+centroids fall within 25 m, helping reduce duplicates across sensors.
+
 Utility modules under `processing` extend the toolkit with low-level I/O helpers.
 
 The `write_geotiff` function in `processing/lidar.py` saves an array to a
