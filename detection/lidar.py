@@ -17,8 +17,10 @@ except Exception:  # pragma: no cover - library may be missing
 
 try:
     from processing.image import to_uint8
+    from .edges import multi_scale_canny
 except Exception:  # pragma: no cover - library may be missing
     to_uint8 = None  # type: ignore
+    multi_scale_canny = None  # type: ignore
 
 from typing import Any, Dict
 
@@ -55,7 +57,7 @@ class Line:
 
 
 def detect_edges(image: "np.ndarray") -> "np.ndarray":
-    """Detect edges in a relief image using the Canny algorithm."""
+    """Detect edges in a relief image using a multi-scale Canny strategy."""
     if cv2 is None or np is None:
         raise RuntimeError("OpenCV and NumPy are required.")
 
@@ -65,8 +67,7 @@ def detect_edges(image: "np.ndarray") -> "np.ndarray":
     else:
         arr_u8 = arr.astype(np.uint8)
 
-    blurred = cv2.GaussianBlur(arr_u8, (3, 3), 0)
-    edges = cv2.Canny(blurred, 30, 90)
+    edges = multi_scale_canny(arr_u8)
     return edges
 
 

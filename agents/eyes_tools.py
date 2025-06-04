@@ -51,6 +51,11 @@ except Exception:  # pragma: no cover - library may be missing
     Transformer = None
 
 try:
+    from detection.edges import multi_scale_canny
+except Exception:  # pragma: no cover - library may be missing
+    multi_scale_canny = None  # type: ignore
+
+try:
     from detection import detect_shapes, shape_metrics
 except Exception:  # pragma: no cover - library may be missing
     detect_shapes = None  # type: ignore
@@ -151,7 +156,7 @@ def detect_image_features(path: str) -> Dict[str, Any]:
     if img is None:
         raise ValueError(f"Unable to read image at {path}")
 
-    edges = cv2.Canny(img, 100, 200)
+    edges = multi_scale_canny(img)
     contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     features: List[Dict[str, Any]] = []
