@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Iterable
 
 from .eyes_tools import (
     analyze_lidar,
@@ -39,7 +39,9 @@ class Eyes:
 
     # Thin wrappers around utility functions ---------------------------------
 
-    def analyze_lidar(self, path: str, pipeline: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+    def analyze_lidar(
+        self, path: str, pipeline: Optional[Dict[str, Any]] = None
+    ) -> Iterable["np.ndarray"]:
         """Delegate to :func:`agents.eyes_tools.analyze_lidar`."""
         return analyze_lidar(path, pipeline)
 
