@@ -11,7 +11,9 @@ methods on the `Eyes` agent. The shape detection logic now resides in the
 
 New tools focus on identifying vegetation or soil anomalies with Sentinel-2
 multi-spectral imagery. The helper `io_utils.raster.load_raster` loads these rasters
-with their coordinate metadata intact for downstream analysis.
+with their coordinate metadata intact for downstream analysis. `analyze_satellite_image`
+optionally computes spectral indices like NDVI and NDWI for vegetation-anomaly
+detection.
 
 The `detect_shapes` function scans a hillshade or local relief image for
 geometric forms and reports their approximate size. Supplying the raster

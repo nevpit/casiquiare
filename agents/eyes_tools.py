@@ -34,6 +34,7 @@ try:
         write_geotiff,
     )
     from processing.image import to_uint8
+    from processing.sat import compute_ndvi, compute_ndwi
     from io_utils.lidar import load_laz
     from io_utils.raster import load_raster
 except Exception:  # pragma: no cover - library may be missing
@@ -42,6 +43,8 @@ except Exception:  # pragma: no cover - library may be missing
     generate_hillshade = None
     write_geotiff = None
     to_uint8 = None  # type: ignore
+    compute_ndvi = None  # type: ignore
+    compute_ndwi = None  # type: ignore
     load_laz = None
     load_raster = None
 
@@ -117,6 +120,34 @@ def analyze_raster(path: str) -> Dict[str, Any]:
     with rasterio.open(path) as src:
         meta = src.meta.copy()
     return meta
+
+
+def analyze_satellite_image(
+    path: str,
+    ndvi_bands: Optional[Tuple[int, int]] = None,
+    ndwi_bands: Optional[Tuple[int, int]] = None,
+) -> Dict[str, Any]:
+    """Inspect a multi-band satellite image and optionally compute indices."""
+    if rasterio is None or np is None:
+        raise RuntimeError("rasterio and NumPy are required.")
+    if load_raster is None or compute_ndvi is None or compute_ndwi is None:
+        raise RuntimeError("Satellite utilities are not available.")
+
+    data, transform, crs = load_raster(path)
+    meta = {"transform": transform, "crs": crs}
+    result: Dict[str, Any] = {"meta": meta}
+
+    if ndvi_bands:
+        red = data[ndvi_bands[0] - 1]
+        nir = data[ndvi_bands[1] - 1]
+        result["ndvi"] = compute_ndvi(red, nir)
+
+    if ndwi_bands:
+        green = data[ndwi_bands[0] - 1]
+        nir = data[ndwi_bands[1] - 1]
+        result["ndwi"] = compute_ndwi(green, nir)
+
+    return result
 
 
 def transform_coordinates(x: float, y: float, from_epsg: int = 4326, to_epsg: int = 3857) -> Tuple[float, float]:
@@ -313,6 +344,7 @@ def scan_area(
 TOOLS: Dict[str, Any] = {
     "analyze_lidar": analyze_lidar,
     "analyze_raster": analyze_raster,
+    "analyze_satellite_image": analyze_satellite_image,
     "transform_coordinates": transform_coordinates,
     "detect_image_features": detect_image_features,
     "lidar_tile_dtm": lidar_tile_dtm,
@@ -325,6 +357,7 @@ TOOLS: Dict[str, Any] = {
 __all__ = [
     "analyze_lidar",
     "analyze_raster",
+    "analyze_satellite_image",
     "transform_coordinates",
     "detect_image_features",
     "lidar_tile_dtm",

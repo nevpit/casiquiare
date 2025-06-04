@@ -32,6 +32,25 @@ def compute_ndvi(red: "np.ndarray", nir: "np.ndarray") -> "np.ndarray":
     return ndvi.astype(np.float32)
 
 
+def compute_ndwi(green: "np.ndarray", nir: "np.ndarray") -> "np.ndarray":
+    """Compute the normalized difference water index (NDWI)."""
+    if np is None:
+        raise RuntimeError("NumPy is required.")
+
+    green_arr = green.astype(float)
+    nir_arr = nir.astype(float)
+    denom = green_arr + nir_arr
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        ndwi = (green_arr - nir_arr) / denom
+        if isinstance(ndwi, np.ndarray):
+            ndwi[denom == 0] = 0.0
+        else:
+            ndwi = 0.0
+
+    return ndwi.astype(np.float32)
+
+
 def enhance_contrast(image: "np.ndarray") -> "np.ndarray":
     """Enhance image contrast using CLAHE."""
     if cv2 is None or np is None:
@@ -50,4 +69,4 @@ def enhance_contrast(image: "np.ndarray") -> "np.ndarray":
     return result
 
 
-__all__ = ["compute_ndvi", "enhance_contrast"]
+__all__ = ["compute_ndvi", "compute_ndwi", "enhance_contrast"]
