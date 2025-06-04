@@ -59,9 +59,16 @@ class Eyes:
         """Delegate to :func:`agents.eyes_tools.detect_image_features`."""
         return detect_image_features(path)
 
-    def lidar_tile_dtm(self, path: str, resolution: float = 1.0) -> Dict[str, Any]:
+    def lidar_tile_dtm(
+        self,
+        path: str,
+        resolution: float = 1.0,
+        *,
+        out_dir: str | None = None,
+        return_paths: bool = False,
+    ) -> Dict[str, Any]:
         """Delegate to :func:`agents.eyes_tools.lidar_tile_dtm`."""
-        return lidar_tile_dtm(path, resolution)
+        return lidar_tile_dtm(path, resolution, out_dir=out_dir, return_paths=return_paths)
 
     def lidar_feature_detection(
         self,
@@ -69,9 +76,19 @@ class Eyes:
         resolution: float = 1.0,
         size_range: Tuple[float, float] = (50.0, 300.0),
         dilation_size: int = 3,
+        *,
+        out_dir: str | None = None,
+        return_paths: bool = False,
     ) -> Dict[str, Any]:
         """Delegate to :func:`agents.eyes_tools.lidar_feature_detection`."""
-        return lidar_feature_detection(path, resolution, size_range, dilation_size)
+        return lidar_feature_detection(
+            path,
+            resolution,
+            size_range,
+            dilation_size,
+            out_dir=out_dir,
+            return_paths=return_paths,
+        )
 
     def detect_shapes(
         self,

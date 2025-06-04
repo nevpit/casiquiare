@@ -31,6 +31,11 @@ The `write_geotiff` function in `processing/lidar.py` saves an array to a
 GeoTIFF file using a provided rasterio profile so the CRS and transform are
 preserved. LiDAR file readers are provided in `io_helpers/lidar.py`.
 
+`lidar_tile_dtm`, `lidar_feature_detection` and `scan_area` can optionally
+write their intermediate rasters to disk. Pass ``out_dir`` to specify an output
+folder and set ``return_paths=True`` to receive file paths instead of NumPy
+arrays.
+
 Additional helpers such as `load_laz`, `generate_lrm`, `generate_hillshade`, and
 `build_dtm` expose low-level I/O and terrain modelling capabilities through the
 Eyes toolkit.
