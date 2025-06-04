@@ -15,6 +15,10 @@ except Exception:  # pragma: no cover - library may be missing
 from .lidar import shape_metrics
 from typing import Any, Dict, List, Optional, Tuple
 
+from log_config import setup_logger
+
+logger = setup_logger(__name__)
+
 
 def detect_shapes(
     image: "np.ndarray",
@@ -33,7 +37,10 @@ def detect_shapes(
         A list of detected shape feature dictionaries.
     """
     if cv2 is None or np is None:
+        logger.warning("OpenCV or NumPy missing; cannot detect shapes")
         raise RuntimeError("OpenCV and NumPy are required.")
+
+    logger.debug("Starting shape detection on image")
 
     arr = image.astype(np.float32)
     arr = cv2.normalize(arr, None, 0, 255, cv2.NORM_MINMAX)
@@ -106,6 +113,7 @@ def detect_shapes(
             }
         )
 
+    logger.debug("Detected %d potential shapes", len(features))
     return features
 
 

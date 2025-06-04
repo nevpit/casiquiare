@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from math import atan2, degrees, hypot
+import logging
 
 try:  # Optional heavy dependencies
     import cv2
@@ -21,6 +22,10 @@ except Exception:  # pragma: no cover - library may be missing
     to_uint8 = None  # type: ignore
 
 from typing import Any, Dict
+
+from log_config import setup_logger
+
+logger = setup_logger(__name__)
 
 
 def shape_metrics(contour: "np.ndarray") -> Dict[str, float]:
@@ -57,7 +62,10 @@ class Line:
 def detect_edges(image: "np.ndarray") -> "np.ndarray":
     """Detect edges in a relief image using the Canny algorithm."""
     if cv2 is None or np is None:
+        logger.warning("OpenCV or NumPy missing; cannot detect edges")
         raise RuntimeError("OpenCV and NumPy are required.")
+
+    logger.debug("Detecting edges")
 
     arr = image
     if to_uint8 is not None:
@@ -67,6 +75,7 @@ def detect_edges(image: "np.ndarray") -> "np.ndarray":
 
     blurred = cv2.GaussianBlur(arr_u8, (3, 3), 0)
     edges = cv2.Canny(blurred, 30, 90)
+    logger.debug("Edge detection complete")
     return edges
 
 
@@ -93,9 +102,13 @@ def shape_metrics(contour: "np.ndarray") -> dict:
 def find_contours(edge_img: "np.ndarray") -> list["np.ndarray"]:
     """Convert an edge image into contours using OpenCV."""
     if cv2 is None or np is None:
+        logger.warning("OpenCV or NumPy missing; cannot find contours")
         raise RuntimeError("OpenCV and NumPy are required.")
 
+    logger.debug("Finding contours")
+
     contours, _ = cv2.findContours(edge_img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    logger.debug("Found %d contours", len(contours))
     return list(contours)
 
 
@@ -104,7 +117,10 @@ def filter_contours(
 ) -> list["np.ndarray"]:
     """Filter contours by bounding-box size."""
     if cv2 is None or np is None:
+        logger.warning("OpenCV or NumPy missing; cannot filter contours")
         raise RuntimeError("OpenCV and NumPy are required.")
+
+    logger.debug("Filtering %d contours", len(contours))
 
     filtered: list["np.ndarray"] = []
     for cnt in contours:
@@ -113,17 +129,22 @@ def filter_contours(
             continue
         filtered.append(cnt)
 
+    logger.debug("%d contours remaining after filtering", len(filtered))
     return filtered
 
 
 def detect_lines(edge_img: "np.ndarray") -> list[Line]:
     """Detect straight lines in an edge image using the probabilistic Hough transform."""
     if cv2 is None or np is None:
+        logger.warning("OpenCV or NumPy missing; cannot detect lines")
         raise RuntimeError("OpenCV and NumPy are required.")
+
+    logger.debug("Detecting lines")
 
     lines = cv2.HoughLinesP(edge_img, 1, np.pi / 180.0, 30, minLineLength=30, maxLineGap=5)
     result: list[Line] = []
     if lines is None:
+        logger.debug("No lines detected")
         return result
 
     for x1, y1, x2, y2 in lines[:, 0]:
@@ -131,6 +152,7 @@ def detect_lines(edge_img: "np.ndarray") -> list[Line]:
         angle = float(degrees(atan2(y2 - y1, x2 - x1)))
         result.append(Line(start=(int(x1), int(y1)), end=(int(x2), int(y2)), length=length, angle=angle))
 
+    logger.debug("Detected %d lines", len(result))
     return result
 
 

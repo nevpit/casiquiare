@@ -66,10 +66,14 @@ def main(argv: list[str] | None = None) -> None:
 
     args = parser.parse_args(argv)
 
+    logger.info("Eyes CLI started with command: %s", args.command)
+
     if args.command == "scan":
         _run_scan(args)
     else:
         parser.print_help()
+
+    logger.info("Eyes CLI finished")
 
 
 if __name__ == "__main__":
