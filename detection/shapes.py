@@ -13,6 +13,7 @@ except Exception:  # pragma: no cover - library may be missing
     np = None  # type: ignore
 
 from .lidar import shape_metrics
+from .edges import multi_scale_canny
 from typing import Any, Dict, List, Optional, Tuple
 
 
@@ -42,7 +43,7 @@ def detect_shapes(
     arr = cv2.normalize(arr, None, 0, 255, cv2.NORM_MINMAX)
     arr_u8 = arr.astype(np.uint8)
 
-    edges = cv2.Canny(arr_u8, 100, 200)
+    edges = multi_scale_canny(arr_u8)
     edges = cv2.dilate(edges, None)
 
     contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
