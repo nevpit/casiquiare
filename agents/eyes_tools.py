@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 from typing import Any, Dict, List, Optional, Tuple
 
 try:  # Optional heavy dependencies
@@ -27,13 +26,23 @@ except Exception:  # pragma: no cover - library may be missing
     pdal = None
 
 try:
-    from processing.lidar import build_dtm, generate_lrm, generate_hillshade
+    from processing.lidar import (
+        build_dtm,
+        generate_lrm,
+        generate_hillshade,
+        write_geotiff,
+    )
     from processing.image import to_uint8
+    from io.lidar import load_laz
+    from io.raster import load_raster
 except Exception:  # pragma: no cover - library may be missing
     build_dtm = None
     generate_lrm = None
     generate_hillshade = None
+    write_geotiff = None
     to_uint8 = None  # type: ignore
+    load_laz = None
+    load_raster = None
 
 try:
     from pyproj import Transformer
@@ -98,7 +107,10 @@ def transform_coordinates(x: float, y: float, from_epsg: int = 4326, to_epsg: in
     if Transformer is None:
         raise RuntimeError("pyproj is not installed.")
     transformer = Transformer.from_crs(from_epsg, to_epsg, always_xy=True)
-    return transformer.transform(x, y)
+    x_out, y_out = transformer.transform(x, y)
+    if to_epsg == 4326:
+        return round(x_out, 6), round(y_out, 6)
+    return x_out, y_out
 
 
 def detect_image_features(path: str) -> Dict[str, Any]:
@@ -112,12 +124,26 @@ def detect_image_features(path: str) -> Dict[str, Any]:
     """
     if cv2 is None or np is None:
         raise RuntimeError("OpenCV and NumPy are required.")
+
     img = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
     if img is None:
         raise ValueError(f"Unable to read image at {path}")
+
     edges = cv2.Canny(img, 100, 200)
     contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    return {"num_contours": len(contours)}
+
+    features: List[Dict[str, Any]] = []
+    for cnt in contours:
+        x, y, w, h = cv2.boundingRect(cnt)
+        area = float(cv2.contourArea(cnt))
+        features.append({
+            "bbox": (int(x), int(y), int(w), int(h)),
+            "width": int(w),
+            "height": int(h),
+            "area": area,
+        })
+
+    return {"num_contours": len(contours), "features": features}
 
 
 def lidar_tile_dtm(path: str, resolution: float = 1.0) -> Dict[str, Any]:
@@ -146,13 +172,26 @@ def lidar_tile_dtm(path: str, resolution: float = 1.0) -> Dict[str, Any]:
     else:
         dtm_u8 = dtm.astype(np.uint8) if np is not None else dtm
 
-    cellsize = profile["transform"][0]
-    gy, gx = np.gradient(dtm, cellsize)
-    slope = np.pi / 2.0 - np.arctan(np.sqrt(gx * gx + gy * gy))
-    aspect = np.arctan2(-gx, gy)
-    azimuth = np.deg2rad(315.0)
-    altitude = np.deg2rad(45.0)
-    hillshade = 255.0 * (np.sin(altitude) * np.sin(slope) + np.cos(altitude) * np.cos(slope) * np.cos(azimuth - aspect))
+    if generate_hillshade is not None:
+        try:
+            hillshade = generate_hillshade(dtm)
+        except Exception:  # pragma: no cover - dependency may be missing
+            hillshade = None
+    else:
+        hillshade = None
+
+    if hillshade is None:
+        cellsize = profile["transform"][0]
+        gy, gx = np.gradient(dtm, cellsize)
+        slope = np.pi / 2.0 - np.arctan(np.sqrt(gx * gx + gy * gy))
+        aspect = np.arctan2(-gx, gy)
+        azimuth = np.deg2rad(315.0)
+        altitude = np.deg2rad(45.0)
+        hillshade = 255.0 * (
+            np.sin(altitude) * np.sin(slope)
+            + np.cos(altitude) * np.cos(slope) * np.cos(azimuth - aspect)
+        )
+
     if to_uint8 is not None:
         hillshade_u8 = to_uint8(hillshade)
     else:
@@ -252,6 +291,7 @@ TOOLS: Dict[str, Any] = {
     "lidar_tile_dtm": lidar_tile_dtm,
     "lidar_feature_detection": lidar_feature_detection,
     "detect_shapes": detect_shapes,
+    "scan_area": scan_area,
 }
 
 __all__ = [
@@ -263,7 +303,6 @@ __all__ = [
     "lidar_feature_detection",
     "detect_shapes",
     "scan_area",
-    "save_snippets",
     "TOOLS",
 ]
 

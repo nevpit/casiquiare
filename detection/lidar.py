@@ -20,6 +20,29 @@ try:
 except Exception:  # pragma: no cover - library may be missing
     to_uint8 = None  # type: ignore
 
+from typing import Any, Dict
+
+
+def shape_metrics(contour: "np.ndarray") -> Dict[str, float]:
+    """Return basic geometric metrics for a contour."""
+    if cv2 is None or np is None:
+        raise RuntimeError("OpenCV and NumPy are required.")
+
+    area = cv2.contourArea(contour)
+    perimeter = cv2.arcLength(contour, True)
+
+    x, y, w, h = cv2.boundingRect(contour)
+    aspect_ratio = w / h if h != 0 else 0.0
+
+    circularity = (4 * np.pi * area / (perimeter * perimeter)) if perimeter != 0 else 0.0
+
+    return {
+        "area": float(area),
+        "perimeter": float(perimeter),
+        "aspect_ratio": float(aspect_ratio),
+        "circularity": float(circularity),
+    }
+
 
 @dataclass
 class Line:
@@ -45,6 +68,27 @@ def detect_edges(image: "np.ndarray") -> "np.ndarray":
     blurred = cv2.GaussianBlur(arr_u8, (3, 3), 0)
     edges = cv2.Canny(blurred, 30, 90)
     return edges
+
+
+def shape_metrics(contour: "np.ndarray") -> dict:
+    """Return basic geometric metrics for a contour."""
+    if cv2 is None or np is None:
+        raise RuntimeError("OpenCV and NumPy are required.")
+
+    area = cv2.contourArea(contour)
+    perimeter = cv2.arcLength(contour, True)
+
+    x, y, w, h = cv2.boundingRect(contour)
+    aspect_ratio = w / h if h != 0 else 0.0
+
+    circularity = (4 * np.pi * area / (perimeter * perimeter)) if perimeter != 0 else 0.0
+
+    return {
+        "area": float(area),
+        "perimeter": float(perimeter),
+        "aspect_ratio": float(aspect_ratio),
+        "circularity": float(circularity),
+    }
 
 def find_contours(edge_img: "np.ndarray") -> list["np.ndarray"]:
     """Convert an edge image into contours using OpenCV."""
@@ -91,9 +135,11 @@ def detect_lines(edge_img: "np.ndarray") -> list[Line]:
 
 
 __all__ = [
+    "shape_metrics",
     "Line",
     "detect_edges",
     "find_contours",
     "filter_contours",
     "detect_lines",
+    "shape_metrics",
 ]
