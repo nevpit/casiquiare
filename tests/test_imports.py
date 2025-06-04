@@ -38,4 +38,5 @@ def test_imports():
     importlib.import_module("processing.image")
     importlib.import_module("detection.lidar")
     importlib.import_module("detection.sat")
+    importlib.import_module("detection.ml_filter")
     importlib.import_module("io_utils.raster")
