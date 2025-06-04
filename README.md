@@ -54,3 +54,110 @@ Some advanced features, such as generating hillshades and local relief models,
 rely on `scipy` and the `gdal` library (available as the `osgeo` module). Install
 these packages alongside the standard requirements if you need the full
 functionality of the processing utilities.
+
+## Programmatic usage examples
+
+Each helper in `agents/eyes_tools.py` can be imported and called directly.  Below
+is a minimal example demonstrating all available tools:
+
+```python
+from agents import eyes_tools as eyes
+
+# Load point cloud arrays from a LiDAR tile
+arrays = eyes.analyze_lidar("tile.laz")
+
+# Inspect basic raster metadata
+meta = eyes.analyze_raster("image.tif")
+
+# Analyse Sentinel-2 imagery and compute NDVI
+sat = eyes.analyze_satellite_image("sentinel.tif", ndvi_bands=(4, 8))
+
+# Reproject coordinates
+x_web, y_web = eyes.transform_coordinates(-60.123, -3.456)
+
+# Detect simple contours in an image
+contours = eyes.detect_image_features("hillshade.png")
+
+# Create a DTM and hillshade from LiDAR
+dtm_info = eyes.lidar_tile_dtm("tile.laz", out_dir="derived", return_paths=True)
+
+# Run feature detection on a tile
+detections = eyes.lidar_feature_detection("tile.laz")
+
+# Use the lower level shape detector
+shapes = eyes.detect_shapes(dtm_info["hillshade"], dtm_info["profile"])
+
+# Save 256×256 snippets around features
+eyes.save_snippets(dtm_info["hillshade"], detections["features"], "snippets")
+
+# Convenience wrapper for the entire pipeline
+results = eyes.scan_area("tile.laz")
+```
+
+## YAML orchestrator snippet
+
+Eyes tools can also be referenced from an external agent orchestrator.  The
+example below illustrates how each function could be invoked in a workflow
+definition:
+
+```yaml
+steps:
+  - name: lidar-inspection
+    tool: analyze_lidar
+    args:
+      path: tile.laz
+
+  - name: raster-meta
+    tool: analyze_raster
+    args:
+      path: image.tif
+
+  - name: sentinel-analysis
+    tool: analyze_satellite_image
+    args:
+      path: sentinel.tif
+      ndvi_bands: [4, 8]
+
+  - name: to-web-mercator
+    tool: transform_coordinates
+    args:
+      x: -60.123
+      y: -3.456
+      to_epsg: 3857
+
+  - name: features-from-image
+    tool: detect_image_features
+    args:
+      path: hillshade.png
+
+  - name: create-dtm
+    tool: lidar_tile_dtm
+    args:
+      path: tile.laz
+      out_dir: derived
+      return_paths: true
+
+  - name: lidar-detection
+    tool: lidar_feature_detection
+    args:
+      path: tile.laz
+      size_range: [50, 300]
+
+  - name: raw-detect-shapes
+    tool: detect_shapes
+    args:
+      image: ${hillshade}
+      profile: ${profile}
+
+  - name: save-snips
+    tool: save_snippets
+    args:
+      image: ${hillshade}
+      features: ${detections}
+      out_dir: snippets
+
+  - name: quick-scan
+    tool: scan_area
+    args:
+      path: tile.laz
+```
