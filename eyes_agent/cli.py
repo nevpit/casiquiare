@@ -56,6 +56,7 @@ def _run_scan(args: argparse.Namespace) -> None:
 
 def main(argv: list[str] | None = None) -> None:
     """CLI entry point."""
+    logger.info("Eyes CLI started")
     parser = argparse.ArgumentParser(prog="eyes-agent")
     subparsers = parser.add_subparsers(dest="command")
 
@@ -70,6 +71,7 @@ def main(argv: list[str] | None = None) -> None:
         _run_scan(args)
     else:
         parser.print_help()
+    logger.info("Eyes CLI finished")
 
 
 if __name__ == "__main__":

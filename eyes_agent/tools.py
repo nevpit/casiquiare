@@ -124,7 +124,11 @@ def scan_tiles_concurrent(
         }
         for future in as_completed(future_to_idx):
             idx = future_to_idx[future]
-            feats = future.result()
+            try:
+                feats = future.result()
+            except Exception as exc:
+                logger.error("Tile %s failed: %s", area_ids[idx], exc)
+                feats = []
             results[idx] = feats
             summary = _feature_summary(feats)
             tile_label = area_ids[idx]
