@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from typing import Any, Dict, List, Optional, Tuple
+from pathlib import Path
 
 try:  # Optional heavy dependencies
     import cv2
@@ -33,8 +34,8 @@ try:
         write_geotiff,
     )
     from processing.image import to_uint8
-    from io.lidar import load_laz
-    from io.raster import load_raster
+    from io_utils.lidar import load_laz
+    from io_utils.raster import load_raster
 except Exception:  # pragma: no cover - library may be missing
     build_dtm = None
     generate_lrm = None
@@ -54,6 +55,27 @@ try:
 except Exception:  # pragma: no cover - library may be missing
     detect_shapes = None  # type: ignore
     shape_metrics = None  # type: ignore
+
+
+def save_snippets(image: "np.ndarray", features: List[Dict[str, Any]], out_dir: str) -> List[str]:
+    """Save cropped PNG snippets around detected features."""
+    if cv2 is None or np is None or to_uint8 is None:
+        raise RuntimeError("OpenCV, NumPy and to_uint8 are required.")
+
+    out_path = Path(out_dir)
+    out_path.mkdir(parents=True, exist_ok=True)
+    paths: List[str] = []
+    for idx, feat in enumerate(features):
+        bbox = feat.get("bbox")
+        if not bbox:
+            continue
+        x, y, w, h = bbox
+        snippet = image[y : y + h, x : x + w]
+        snippet_u8 = to_uint8(snippet) if snippet.dtype != np.uint8 else snippet
+        file_path = out_path / f"snippet_{idx}.png"
+        cv2.imwrite(str(file_path), snippet_u8)
+        paths.append(str(file_path))
+    return paths
 
 
 def analyze_lidar(path: str, pipeline: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
@@ -291,6 +313,7 @@ TOOLS: Dict[str, Any] = {
     "lidar_tile_dtm": lidar_tile_dtm,
     "lidar_feature_detection": lidar_feature_detection,
     "detect_shapes": detect_shapes,
+    "save_snippets": save_snippets,
     "scan_area": scan_area,
 }
 
@@ -302,6 +325,7 @@ __all__ = [
     "lidar_tile_dtm",
     "lidar_feature_detection",
     "detect_shapes",
+    "save_snippets",
     "scan_area",
     "TOOLS",
 ]

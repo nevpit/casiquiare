@@ -14,7 +14,7 @@ except Exception:  # pragma: no cover - library may be missing
 
 from detection import Feature
 from detection.shapes import detect_shapes
-from io.raster import load_raster
+from io_utils.raster import load_raster
 
 logger = setup_logger(__name__)
 
