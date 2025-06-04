@@ -1,6 +1,17 @@
-"""Detection utilities for LiDAR-derived shapes."""
+"""Shape detection utilities."""
 
-from .lidar import shape_metrics
 from .shapes import detect_shapes
+from .merge import merge_detections
+from .feature import Feature
 
-__all__ = ["shape_metrics", "detect_shapes"]
+__all__ = [
+    "Line",
+    "detect_edges",
+    "find_contours",
+    "filter_contours",
+    "detect_lines",
+    "shape_metrics",
+    "detect_shapes",
+    "merge_detections",
+    "Feature",
+]
