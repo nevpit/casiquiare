@@ -204,7 +204,13 @@ def detect_image_features(path: str) -> Dict[str, Any]:
     return {"num_contours": len(contours), "features": features}
 
 
-def lidar_tile_dtm(path: str, resolution: float = 1.0) -> Dict[str, Any]:
+def lidar_tile_dtm(
+    path: str,
+    resolution: float = 1.0,
+    *,
+    out_dir: str | None = None,
+    return_paths: bool = False,
+) -> Dict[str, Any]:
     """Generate a bare-earth DTM and visualizations from a LiDAR tile.
 
     Args:
@@ -212,7 +218,10 @@ def lidar_tile_dtm(path: str, resolution: float = 1.0) -> Dict[str, Any]:
         resolution: Resolution of the derived rasters in meters.
 
     Returns:
-        Dictionary containing raster arrays and the rasterio profile.
+        Dictionary containing raster arrays or file paths and the rasterio
+        profile. When ``out_dir`` is provided and ``return_paths`` is ``True``
+        the rasters are written to GeoTIFFs on disk and the returned values are
+        the file paths.
     """
     if pdal is None:
         raise RuntimeError("PDAL is not installed.")
@@ -264,6 +273,28 @@ def lidar_tile_dtm(path: str, resolution: float = 1.0) -> Dict[str, Any]:
         except Exception:  # pragma: no cover - dependency may be missing
             local_relief = None
 
+    if out_dir is not None:
+        if write_geotiff is None:
+            raise RuntimeError("write_geotiff utility is not available.")
+        out_path = Path(out_dir)
+        out_path.mkdir(parents=True, exist_ok=True)
+        dtm_file = out_path / "dtm.tif"
+        hill_file = out_path / "hillshade.tif"
+        write_geotiff(str(dtm_file), dtm_u8, profile)
+        write_geotiff(str(hill_file), hillshade_u8, profile)
+        lrm_file = None
+        if local_relief is not None:
+            lrm_file = out_path / "local_relief.tif"
+            write_geotiff(str(lrm_file), local_relief, profile)
+
+    if out_dir is not None and return_paths:
+        return {
+            "dtm": str(dtm_file),
+            "hillshade": str(hill_file),
+            "local_relief": str(lrm_file) if local_relief is not None else None,
+            "profile": profile,
+        }
+
     return {
         "dtm": dtm_u8,
         "hillshade": hillshade_u8,
@@ -277,6 +308,9 @@ def lidar_feature_detection(
     resolution: float = 1.0,
     size_range: Tuple[float, float] = (50.0, 300.0),
     dilation_size: int = 3,
+    *,
+    out_dir: str | None = None,
+    return_paths: bool = False,
 ) -> Dict[str, Any]:
     """Generate visualization rasters and detect shapes in a LiDAR tile.
 
@@ -288,7 +322,9 @@ def lidar_feature_detection(
             :func:`detection.detect_shapes`.
 
     Returns:
-        Dictionary with rasters, features and the rasterio profile.
+        Dictionary with rasters (or file paths), detected features and the
+        rasterio profile. When ``out_dir`` is provided and ``return_paths`` is
+        ``True`` the rasters are written to disk and the file paths returned.
     """
     if pdal is None:
         raise RuntimeError("PDAL is not installed.")
@@ -312,7 +348,28 @@ def lidar_feature_detection(
     hillshade_u8 = to_uint8(hillshade)
     local_relief_u8 = to_uint8(local_relief)
 
+    if out_dir is not None:
+        if write_geotiff is None:
+            raise RuntimeError("write_geotiff utility is not available.")
+        out_path = Path(out_dir)
+        out_path.mkdir(parents=True, exist_ok=True)
+        dtm_file = out_path / "dtm.tif"
+        hill_file = out_path / "hillshade.tif"
+        lrm_file = out_path / "local_relief.tif"
+        write_geotiff(str(dtm_file), dtm_u8, profile)
+        write_geotiff(str(hill_file), hillshade_u8, profile)
+        write_geotiff(str(lrm_file), local_relief_u8, profile)
+
     features = detect_shapes(local_relief_u8, profile, size_range, dilation_size=dilation_size)
+
+    if out_dir is not None and return_paths:
+        return {
+            "dtm": str(dtm_file),
+            "hillshade": str(hill_file),
+            "local_relief": str(lrm_file),
+            "features": features,
+            "profile": profile,
+        }
 
     return {
         "dtm": dtm_u8,
@@ -329,6 +386,9 @@ def scan_area(
     min_size: float = 50.0,
     max_size: float = 300.0,
     dilation_size: int = 3,
+    *,
+    out_dir: str | None = None,
+    return_paths: bool = False,
 ) -> Dict[str, Any]:
     """Scan an area for geometric features using LiDAR data.
 
@@ -341,10 +401,17 @@ def scan_area(
             :func:`lidar_feature_detection`.
 
     Returns:
-        Dictionary with derived rasters and detected features.
+        Dictionary with derived rasters (or file paths) and detected features.
     """
     size_range = (min_size, max_size)
-    return lidar_feature_detection(path, resolution, size_range, dilation_size)
+    return lidar_feature_detection(
+        path,
+        resolution,
+        size_range,
+        dilation_size,
+        out_dir=out_dir,
+        return_paths=return_paths,
+    )
 
 
 TOOLS: Dict[str, Any] = {
