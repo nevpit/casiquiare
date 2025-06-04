@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Iterable
 from pathlib import Path
 
 try:  # Optional heavy dependencies
@@ -78,7 +78,7 @@ def save_snippets(image: "np.ndarray", features: List[Dict[str, Any]], out_dir: 
     return paths
 
 
-def analyze_lidar(path: str, pipeline: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+def analyze_lidar(path: str, pipeline: Optional[Dict[str, Any]] = None) -> Iterable["np.ndarray"]:
     """Load and process a LiDAR point cloud using PDAL.
 
     Args:
@@ -87,7 +87,7 @@ def analyze_lidar(path: str, pipeline: Optional[Dict[str, Any]] = None) -> List[
             reader pipeline is created.
 
     Returns:
-        List of point arrays in native PDAL format converted to Python lists.
+        Sequence of point arrays in native PDAL ``numpy`` format.
     """
     if pdal is None:
         raise RuntimeError("PDAL is not installed.")
@@ -95,7 +95,7 @@ def analyze_lidar(path: str, pipeline: Optional[Dict[str, Any]] = None) -> List[
     pl = pdal.Pipeline(json.dumps(pipeline))
     pl.execute()
     arrays = pl.arrays
-    return [arr.tolist() for arr in arrays]
+    return arrays
 
 
 def analyze_raster(path: str) -> Dict[str, Any]:
