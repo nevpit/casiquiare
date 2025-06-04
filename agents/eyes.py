@@ -68,18 +68,20 @@ class Eyes:
         path: str,
         resolution: float = 1.0,
         size_range: Tuple[float, float] = (50.0, 300.0),
+        dilation_size: int = 3,
     ) -> Dict[str, Any]:
         """Delegate to :func:`agents.eyes_tools.lidar_feature_detection`."""
-        return lidar_feature_detection(path, resolution, size_range)
+        return lidar_feature_detection(path, resolution, size_range, dilation_size)
 
     def detect_shapes(
         self,
         image: "Any",
         profile: Optional[Dict[str, Any]] = None,
         size_range: Tuple[float, float] = (50.0, 300.0),
+        dilation_size: int = 3,
     ) -> List[Dict[str, Any]]:
         """Delegate to :func:`agents.eyes_tools.detect_shapes`."""
-        return detect_shapes(image, profile, size_range)
+        return detect_shapes(image, profile, size_range, dilation_size=dilation_size)
 
     # -----------------------------------------------------------------------
 

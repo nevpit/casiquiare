@@ -11,6 +11,7 @@ eyes_agent:
 processing:
   lidar_resolution: 1.0       # DTM grid cell size in meters
   size_range: [50.0, 300.0]   # min and max feature size for detection
+  dilation_size: 3            # kernel size for edge dilation
   snippet_size: 256           # dimension of saved snippet PNGs
 
 output:
