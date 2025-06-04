@@ -29,3 +29,19 @@ def test_detect_shapes_scoring():
         assert 0.0 <= feature["score"] <= 1.0
     else:
         pytest.fail("No shape detected")
+
+
+def test_detect_shapes_threshold():
+    if d_shapes.cv2 is None or d_shapes.np is None:
+        pytest.skip("OpenCV not installed")
+
+    img = np.zeros((60, 60), dtype=np.uint8)
+    d_shapes.cv2.rectangle(img, (10, 10), (50, 50), 255, -1)
+
+    # detection without threshold should return the rectangle
+    res = detect_shapes(img, size_range=(0, 60))
+    assert res
+
+    # using a high threshold should filter out the detection
+    res_high = detect_shapes(img, size_range=(0, 60), score_threshold=0.9)
+    assert res_high == []
