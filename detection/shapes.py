@@ -64,11 +64,9 @@ def detect_shapes(
             continue
 
         approx = cv2.approxPolyDP(cnt, 0.02 * cv2.arcLength(cnt, True), True)
-        shape = "circle"
-        if len(approx) == 4:
-            shape = "rectangle"
-        elif len(approx) > 4:
-            shape = "polygon"
+        metrics = shape_metrics(cnt) if shape_metrics is not None else {}
+        shape = metrics.get("shape", "polygon")
+        num_vertices = metrics.get("num_vertices", len(approx))
 
         mask = np.zeros(edges.shape, dtype=np.uint8)
         cv2.drawContours(mask, [cnt], -1, 255, -1)
@@ -76,14 +74,17 @@ def detect_shapes(
         # Higher values indicate sharper, well-defined boundaries.
         edge_strength = float(cv2.mean(edges, mask=mask)[0]) / 255.0
 
-        metrics = shape_metrics(cnt) if shape_metrics is not None else {}
         if metrics:
             if shape == "circle":
                 shape_reg = metrics.get("circularity", 0.0)
             elif shape == "rectangle":
                 ratio_score = 1.0 - abs(1.0 - metrics.get("aspect_ratio", 0.0))
-                vert_score = 1.0 - abs(len(approx) - 4) / 4.0
+                vert_score = 1.0 - abs(num_vertices - 4) / 4.0
                 shape_reg = (ratio_score + vert_score) / 2.0
+            elif shape == "linear":
+                ar = metrics.get("aspect_ratio", 0.0)
+                ratio = max(ar, 1.0 / ar) if ar != 0 else 0.0
+                shape_reg = min(ratio / 5.0, 1.0)
             else:
                 shape_reg = metrics.get("circularity", 0.0)
         else:
@@ -105,7 +106,7 @@ def detect_shapes(
                     "bbox": (x, y, w, h),
                     "width": width,
                     "height": height,
-                    "num_vertices": len(approx),
+                    "num_vertices": num_vertices,
                     "shape": shape,
                     "score": float(score),
                 }
