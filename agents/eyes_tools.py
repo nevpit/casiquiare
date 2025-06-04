@@ -3,8 +3,13 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any, Dict, List, Optional, Tuple, Iterable
 from pathlib import Path
+
+from log_config import setup_logger
+
+logger = setup_logger(__name__)
 
 try:  # Optional heavy dependencies
     import cv2
@@ -70,6 +75,7 @@ def save_snippets(image: "np.ndarray", features: List[Dict[str, Any]], out_dir: 
     if cv2 is None or np is None or to_uint8 is None:
         raise RuntimeError("OpenCV, NumPy and to_uint8 are required.")
 
+    logger.info("Saving %d snippets to %s", len(features), out_dir)
     out_path = Path(out_dir)
     out_path.mkdir(parents=True, exist_ok=True)
     paths: List[str] = []
@@ -83,6 +89,7 @@ def save_snippets(image: "np.ndarray", features: List[Dict[str, Any]], out_dir: 
         file_path = out_path / f"snippet_{idx}.png"
         cv2.imwrite(str(file_path), snippet_u8)
         paths.append(str(file_path))
+    logger.info("Saved %d snippet files", len(paths))
     return paths
 
 
@@ -99,10 +106,12 @@ def analyze_lidar(path: str, pipeline: Optional[Dict[str, Any]] = None) -> Itera
     """
     if pdal is None:
         raise RuntimeError("PDAL is not installed.")
+    logger.info("Starting analyze_lidar on %s", path)
     pipeline = pipeline or {"pipeline": [path]}
     pl = pdal.Pipeline(json.dumps(pipeline))
     pl.execute()
     arrays = pl.arrays
+    logger.info("Finished analyze_lidar on %s", path)
     return arrays
 
 
@@ -117,8 +126,10 @@ def analyze_raster(path: str) -> Dict[str, Any]:
     """
     if rasterio is None:
         raise RuntimeError("rasterio is not installed.")
+    logger.info("Analyzing raster %s", path)
     with rasterio.open(path) as src:
         meta = src.meta.copy()
+    logger.info("Finished analyzing raster %s", path)
     return meta
 
 
@@ -133,20 +144,25 @@ def analyze_satellite_image(
     if load_raster is None or compute_ndvi is None or compute_ndwi is None:
         raise RuntimeError("Satellite utilities are not available.")
 
+    logger.info("Analyzing satellite image %s", path)
+
     data, transform, crs = load_raster(path)
     meta = {"transform": transform, "crs": crs}
     result: Dict[str, Any] = {"meta": meta}
 
     if ndvi_bands:
+        logger.debug("Computing NDVI")
         red = data[ndvi_bands[0] - 1]
         nir = data[ndvi_bands[1] - 1]
         result["ndvi"] = compute_ndvi(red, nir)
 
     if ndwi_bands:
+        logger.debug("Computing NDWI")
         green = data[ndwi_bands[0] - 1]
         nir = data[ndwi_bands[1] - 1]
         result["ndwi"] = compute_ndwi(green, nir)
 
+    logger.info("Finished analyzing satellite image %s", path)
     return result
 
 
@@ -164,11 +180,21 @@ def transform_coordinates(x: float, y: float, from_epsg: int = 4326, to_epsg: in
     """
     if Transformer is None:
         raise RuntimeError("pyproj is not installed.")
+    logger.debug(
+        "Transforming coordinates (%s, %s) from EPSG:%d to EPSG:%d",
+        x,
+        y,
+        from_epsg,
+        to_epsg,
+    )
     transformer = Transformer.from_crs(from_epsg, to_epsg, always_xy=True)
     x_out, y_out = transformer.transform(x, y)
     if to_epsg == 4326:
-        return round(x_out, 6), round(y_out, 6)
-    return x_out, y_out
+        result = round(x_out, 6), round(y_out, 6)
+    else:
+        result = x_out, y_out
+    logger.debug("Resulting coordinates: %s", result)
+    return result
 
 
 def detect_image_features(path: str) -> Dict[str, Any]:
@@ -183,8 +209,10 @@ def detect_image_features(path: str) -> Dict[str, Any]:
     if cv2 is None or np is None:
         raise RuntimeError("OpenCV and NumPy are required.")
 
+    logger.info("Detecting image features in %s", path)
     img = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
     if img is None:
+        logger.warning("Unable to read image at %s", path)
         raise ValueError(f"Unable to read image at {path}")
 
     edges = multi_scale_canny(img)
@@ -201,7 +229,9 @@ def detect_image_features(path: str) -> Dict[str, Any]:
             "area": area,
         })
 
-    return {"num_contours": len(contours), "features": features}
+    result = {"num_contours": len(contours), "features": features}
+    logger.info("Detected %d contours in %s", len(contours), path)
+    return result
 
 
 def lidar_tile_dtm(
@@ -228,6 +258,8 @@ def lidar_tile_dtm(
     if rasterio is None or np is None:
         raise RuntimeError("rasterio and NumPy are required.")
 
+    logger.info("Generating DTM for %s", path)
+
     pipeline = {"pipeline": [path]}
     pl = pdal.Pipeline(json.dumps(pipeline))
     if build_dtm is None:
@@ -242,7 +274,8 @@ def lidar_tile_dtm(
     if generate_hillshade is not None:
         try:
             hillshade = generate_hillshade(dtm)
-        except Exception:  # pragma: no cover - dependency may be missing
+        except Exception as exc:  # pragma: no cover - dependency may be missing
+            logger.warning("Hillshade generation failed: %s", exc)
             hillshade = None
     else:
         hillshade = None
@@ -270,7 +303,8 @@ def lidar_tile_dtm(
             local_relief = generate_lrm(dtm, sigma=5)
             if to_uint8 is not None:
                 local_relief = to_uint8(local_relief)
-        except Exception:  # pragma: no cover - dependency may be missing
+        except Exception as exc:  # pragma: no cover - dependency may be missing
+            logger.warning("Local relief model generation failed: %s", exc)
             local_relief = None
 
     if out_dir is not None:
@@ -294,13 +328,15 @@ def lidar_tile_dtm(
             "local_relief": str(lrm_file) if local_relief is not None else None,
             "profile": profile,
         }
-
-    return {
+    result = {
         "dtm": dtm_u8,
         "hillshade": hillshade_u8,
         "local_relief": local_relief,
         "profile": profile,
     }
+
+    logger.info("Finished DTM generation for %s", path)
+    return result
 
 
 def lidar_feature_detection(
@@ -337,6 +373,8 @@ def lidar_feature_detection(
     if to_uint8 is None:
         raise RuntimeError("to_uint8 utility is not available.")
 
+    logger.info("Running LiDAR feature detection on %s", path)
+
     pipeline = {"pipeline": [path]}
     pl = pdal.Pipeline(json.dumps(pipeline))
     dtm, profile = build_dtm(pl, resolution)
@@ -363,21 +401,26 @@ def lidar_feature_detection(
     features = detect_shapes(local_relief_u8, profile, size_range, dilation_size=dilation_size)
 
     if out_dir is not None and return_paths:
-        return {
+        result = {
             "dtm": str(dtm_file),
             "hillshade": str(hill_file),
             "local_relief": str(lrm_file),
             "features": features,
             "profile": profile,
         }
+        logger.info("Feature detection complete for %s", path)
+        return result
 
-    return {
+    result = {
         "dtm": dtm_u8,
         "hillshade": hillshade_u8,
         "local_relief": local_relief_u8,
         "features": features,
         "profile": profile,
     }
+
+    logger.info("Feature detection complete for %s", path)
+    return result
 
 
 def scan_area(
