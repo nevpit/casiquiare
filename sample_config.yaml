@@ -5,8 +5,7 @@ logging:
   level: INFO                 # logging level
 
 eyes_agent:
-  api_key: YOUR_OPENAI_API_KEY
-  model: gpt-4-turbo
+  model: gpt-4-turbo  # API key is read from OPENAI_API_KEY
 
 processing:
   lidar_resolution: 1.0       # DTM grid cell size in meters

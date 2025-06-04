@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple, Iterable
+from typing import Any, Dict, List, Tuple, Iterable, Optional
 
 from .eyes_tools import (
     analyze_lidar,
@@ -18,23 +18,21 @@ from .eyes_tools import (
 )
 
 try:
-    from openai import OpenAI
+    import openai
 except Exception:  # pragma: no cover - library may be missing
-    OpenAI = None
+    openai = None
 
 
 @dataclass
 class Eyes:
     """Remote-sensing and GIS agent."""
 
-    api_key: Optional[str] = None
     model: str = "gpt-4-turbo"
-    client: Any = field(init=False, default=None)
     tools: Dict[str, Any] = field(init=False, default_factory=dict)
 
     def __post_init__(self) -> None:
-        if OpenAI is not None:
-            self.client = OpenAI(api_key=self.api_key or os.getenv("OPENAI_API_KEY"))
+        if openai is not None:
+            openai.api_key = os.getenv("OPENAI_API_KEY")
         self.tools = TOOLS
 
     # Thin wrappers around utility functions ---------------------------------
@@ -104,7 +102,7 @@ class Eyes:
 
     def summarize(self, findings: str) -> str:
         """Generate a factual summary using an OpenAI model."""
-        if self.client is None:
+        if openai is None:
             raise RuntimeError("OpenAI SDK is not available.")
         messages = [
             {
@@ -117,5 +115,5 @@ class Eyes:
             },
             {"role": "user", "content": findings},
         ]
-        response = self.client.chat.completions.create(model=self.model, messages=messages)
+        response = openai.ChatCompletion.create(model=self.model, messages=messages)
         return response.choices[0].message.content.strip()
