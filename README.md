@@ -18,7 +18,9 @@ detection.
 The `detect_shapes` function scans a hillshade or local relief image for
 geometric forms and reports their approximate size. Supplying the raster
 profile allows the results to be expressed in meters so features outside the
-50–300 m range can be filtered out.
+50–300 m range can be filtered out. The dilation kernel used when
+extracting edges and the contour size limits are exposed as parameters so
+you can tune detection sensitivity to each dataset.
 
 `merge_detections` combines LiDAR and satellite candidates when their
 centroids fall within 25 m, helping reduce duplicates across sensors.

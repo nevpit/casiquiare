@@ -45,3 +45,14 @@ def test_detect_shapes_threshold():
     # using a high threshold should filter out the detection
     res_high = detect_shapes(img, size_range=(0, 60), score_threshold=0.9)
     assert res_high == []
+
+
+def test_detect_shapes_dilation_param():
+    if d_shapes.cv2 is None or d_shapes.np is None:
+        pytest.skip("OpenCV not installed")
+
+    img = np.zeros((40, 40), dtype=np.uint8)
+    d_shapes.cv2.rectangle(img, (10, 10), (30, 30), 255, -1)
+
+    res = detect_shapes(img, size_range=(0, 40), dilation_size=5)
+    assert isinstance(res, list)

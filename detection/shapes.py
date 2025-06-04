@@ -22,6 +22,7 @@ def detect_shapes(
     profile: Optional[Dict[str, Any]] = None,
     size_range: Tuple[float, float] = (50.0, 300.0),
     score_threshold: float = 0.0,
+    dilation_size: int = 3,
 ) -> List[Dict[str, Any]]:
     """Detect geometric shapes in a relief image.
 
@@ -32,6 +33,8 @@ def detect_shapes(
             ``profile`` transform or pixels if ``profile`` is ``None``.
         score_threshold: Minimum confidence score for a detection to be
             included in the results. Defaults to ``0.0`` (no filtering).
+        dilation_size: Size of the structuring element used to dilate the
+            edge mask. ``0`` disables dilation. Defaults to ``3``.
 
     Returns:
         A list of detected shape feature dictionaries.
@@ -44,7 +47,12 @@ def detect_shapes(
     arr_u8 = arr.astype(np.uint8)
 
     edges = multi_scale_canny(arr_u8)
-    edges = cv2.dilate(edges, None)
+    if dilation_size > 0:
+        kernel_size = dilation_size + 1 if dilation_size % 2 == 0 else dilation_size
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (kernel_size, kernel_size))
+        edges = cv2.dilate(edges, kernel)
+    else:
+        edges = cv2.dilate(edges, None)
 
     contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 

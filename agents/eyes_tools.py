@@ -276,6 +276,7 @@ def lidar_feature_detection(
     path: str,
     resolution: float = 1.0,
     size_range: Tuple[float, float] = (50.0, 300.0),
+    dilation_size: int = 3,
 ) -> Dict[str, Any]:
     """Generate visualization rasters and detect shapes in a LiDAR tile.
 
@@ -283,6 +284,8 @@ def lidar_feature_detection(
         path: Path to the LiDAR tile.
         resolution: Resolution of the derived rasters in meters.
         size_range: Tuple specifying the minimum and maximum feature size.
+        dilation_size: Size of the dilation kernel passed to
+            :func:`detection.detect_shapes`.
 
     Returns:
         Dictionary with rasters, features and the rasterio profile.
@@ -309,7 +312,7 @@ def lidar_feature_detection(
     hillshade_u8 = to_uint8(hillshade)
     local_relief_u8 = to_uint8(local_relief)
 
-    features = detect_shapes(local_relief_u8, profile, size_range)
+    features = detect_shapes(local_relief_u8, profile, size_range, dilation_size=dilation_size)
 
     return {
         "dtm": dtm_u8,
@@ -325,6 +328,7 @@ def scan_area(
     resolution: float = 1.0,
     min_size: float = 50.0,
     max_size: float = 300.0,
+    dilation_size: int = 3,
 ) -> Dict[str, Any]:
     """Scan an area for geometric features using LiDAR data.
 
@@ -333,12 +337,14 @@ def scan_area(
         resolution: Output resolution for intermediate rasters.
         min_size: Minimum feature size to report.
         max_size: Maximum feature size to report.
+        dilation_size: Dilation kernel size forwarded to
+            :func:`lidar_feature_detection`.
 
     Returns:
         Dictionary with derived rasters and detected features.
     """
     size_range = (min_size, max_size)
-    return lidar_feature_detection(path, resolution, size_range)
+    return lidar_feature_detection(path, resolution, size_range, dilation_size)
 
 
 TOOLS: Dict[str, Any] = {
