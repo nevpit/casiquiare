@@ -16,7 +16,16 @@ def test_imports():
     spec.loader.exec_module(module)  # type: ignore[arg-type]
     sys.modules["io.lidar"] = module
 
+    # Import io.data_paths explicitly from file to avoid stdlib conflict
+    paths_path = Path(__file__).resolve().parents[1] / "io" / "data_paths.py"
+    spec_paths = importlib.util.spec_from_file_location("io.data_paths", paths_path)
+    paths_module = importlib.util.module_from_spec(spec_paths)
+    assert spec_paths and spec_paths.loader
+    spec_paths.loader.exec_module(paths_module)  # type: ignore[arg-type]
+    sys.modules["io.data_paths"] = paths_module
+
     importlib.import_module("io.lidar")
+    importlib.import_module("io.data_paths")
     importlib.import_module("processing.lidar")
     importlib.import_module("processing.image")
     importlib.import_module("detection.lidar")

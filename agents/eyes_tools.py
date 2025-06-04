@@ -48,7 +48,16 @@ except Exception:  # pragma: no cover - library may be missing
 
 
 def analyze_lidar(path: str, pipeline: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
-    """Load and process a LiDAR point cloud using PDAL."""
+    """Load and process a LiDAR point cloud using PDAL.
+
+    Args:
+        path: Path to the input LAZ or LAS file.
+        pipeline: Optional PDAL pipeline specification. If ``None`` a simple
+            reader pipeline is created.
+
+    Returns:
+        List of point arrays in native PDAL format converted to Python lists.
+    """
     if pdal is None:
         raise RuntimeError("PDAL is not installed.")
     pipeline = pipeline or {"pipeline": [path]}
@@ -59,7 +68,14 @@ def analyze_lidar(path: str, pipeline: Optional[Dict[str, Any]] = None) -> List[
 
 
 def analyze_raster(path: str) -> Dict[str, Any]:
-    """Read raster metadata using rasterio."""
+    """Read raster metadata using rasterio.
+
+    Args:
+        path: Path to the raster to inspect.
+
+    Returns:
+        Dictionary containing the raster's metadata profile.
+    """
     if rasterio is None:
         raise RuntimeError("rasterio is not installed.")
     with rasterio.open(path) as src:
@@ -68,7 +84,17 @@ def analyze_raster(path: str) -> Dict[str, Any]:
 
 
 def transform_coordinates(x: float, y: float, from_epsg: int = 4326, to_epsg: int = 3857) -> Tuple[float, float]:
-    """Transform coordinates between projections using pyproj."""
+    """Transform coordinates between projections using pyproj.
+
+    Args:
+        x: X coordinate in the source CRS.
+        y: Y coordinate in the source CRS.
+        from_epsg: EPSG code of the source CRS.
+        to_epsg: EPSG code of the destination CRS.
+
+    Returns:
+        Transformed ``(x, y)`` tuple.
+    """
     if Transformer is None:
         raise RuntimeError("pyproj is not installed.")
     transformer = Transformer.from_crs(from_epsg, to_epsg, always_xy=True)
@@ -76,7 +102,14 @@ def transform_coordinates(x: float, y: float, from_epsg: int = 4326, to_epsg: in
 
 
 def detect_image_features(path: str) -> Dict[str, Any]:
-    """Detect simple features in an image using OpenCV."""
+    """Detect simple features in an image using OpenCV.
+
+    Args:
+        path: Path to the image file to analyse.
+
+    Returns:
+        Dictionary describing detected contours.
+    """
     if cv2 is None or np is None:
         raise RuntimeError("OpenCV and NumPy are required.")
     img = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
@@ -88,7 +121,15 @@ def detect_image_features(path: str) -> Dict[str, Any]:
 
 
 def lidar_tile_dtm(path: str, resolution: float = 1.0) -> Dict[str, Any]:
-    """Generate a bare-earth DTM and visualizations from a LiDAR tile."""
+    """Generate a bare-earth DTM and visualizations from a LiDAR tile.
+
+    Args:
+        path: Path to the LiDAR tile.
+        resolution: Resolution of the derived rasters in meters.
+
+    Returns:
+        Dictionary containing raster arrays and the rasterio profile.
+    """
     if pdal is None:
         raise RuntimeError("PDAL is not installed.")
     if rasterio is None or np is None:
@@ -139,7 +180,16 @@ def lidar_feature_detection(
     resolution: float = 1.0,
     size_range: Tuple[float, float] = (50.0, 300.0),
 ) -> Dict[str, Any]:
-    """Generate visualization rasters and detect shapes in a LiDAR tile."""
+    """Generate visualization rasters and detect shapes in a LiDAR tile.
+
+    Args:
+        path: Path to the LiDAR tile.
+        resolution: Resolution of the derived rasters in meters.
+        size_range: Tuple specifying the minimum and maximum feature size.
+
+    Returns:
+        Dictionary with rasters, features and the rasterio profile.
+    """
     if pdal is None:
         raise RuntimeError("PDAL is not installed.")
     if rasterio is None or np is None:
@@ -173,6 +223,27 @@ def lidar_feature_detection(
     }
 
 
+def scan_area(
+    path: str,
+    resolution: float = 1.0,
+    min_size: float = 50.0,
+    max_size: float = 300.0,
+) -> Dict[str, Any]:
+    """Scan an area for geometric features using LiDAR data.
+
+    Args:
+        path: Path to the LiDAR tile.
+        resolution: Output resolution for intermediate rasters.
+        min_size: Minimum feature size to report.
+        max_size: Maximum feature size to report.
+
+    Returns:
+        Dictionary with derived rasters and detected features.
+    """
+    size_range = (min_size, max_size)
+    return lidar_feature_detection(path, resolution, size_range)
+
+
 TOOLS: Dict[str, Any] = {
     "analyze_lidar": analyze_lidar,
     "analyze_raster": analyze_raster,
@@ -181,7 +252,6 @@ TOOLS: Dict[str, Any] = {
     "lidar_tile_dtm": lidar_tile_dtm,
     "lidar_feature_detection": lidar_feature_detection,
     "detect_shapes": detect_shapes,
-    "save_snippets": save_snippets,
 }
 
 __all__ = [
@@ -192,6 +262,7 @@ __all__ = [
     "lidar_tile_dtm",
     "lidar_feature_detection",
     "detect_shapes",
+    "scan_area",
     "save_snippets",
     "TOOLS",
 ]

@@ -13,7 +13,16 @@ def to_uint8(
     lower_percentile: float = 2.0,
     upper_percentile: float = 98.0,
 ) -> "np.ndarray":
-    """Convert an array to 8-bit using contrast stretching."""
+    """Convert an array to 8-bit using contrast stretching.
+
+    Args:
+        image: The array to rescale.
+        lower_percentile: Values below this percentile are clipped.
+        upper_percentile: Values above this percentile are clipped.
+
+    Returns:
+        The rescaled image as ``uint8``.
+    """
     if np is None:
         raise RuntimeError("NumPy is not installed.")
 

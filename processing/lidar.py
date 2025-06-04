@@ -37,7 +37,13 @@ except Exception:  # pragma: no cover - library may be missing
 
 
 def write_geotiff(path: str, array: "np.ndarray", profile: Dict[str, Any]) -> None:
-    """Write a NumPy array to a GeoTIFF file using rasterio."""
+    """Write a NumPy array to a GeoTIFF file using rasterio.
+
+    Args:
+        path: Destination file path.
+        array: Image data to write.
+        profile: Rasterio profile describing the image.
+    """
     if rasterio is None:
         raise RuntimeError("rasterio is not installed.")
     if np is None:
@@ -57,7 +63,15 @@ def write_geotiff(path: str, array: "np.ndarray", profile: Dict[str, Any]) -> No
 
 
 def generate_lrm(dtm: "np.ndarray", sigma: float = 5) -> "np.ndarray":
-    """Generate a local relief model from a DTM using Gaussian blur."""
+    """Generate a local relief model from a DTM using Gaussian blur.
+
+    Args:
+        dtm: Digital terrain model array.
+        sigma: Standard deviation of the Gaussian kernel.
+
+    Returns:
+        The local relief model as a float array.
+    """
     if np is None:
         raise RuntimeError("NumPy is required.")
 
@@ -71,7 +85,16 @@ def generate_lrm(dtm: "np.ndarray", sigma: float = 5) -> "np.ndarray":
     return dtm.astype(float) - blurred
 
 def generate_hillshade(dtm: "np.ndarray", azimuth: int = 315, altitude: int = 45) -> "np.ndarray":
-    """Create a hillshade image from a digital terrain model using GDAL."""
+    """Create a hillshade image from a digital terrain model using GDAL.
+
+    Args:
+        dtm: Digital terrain model array.
+        azimuth: Light source direction.
+        altitude: Light source altitude angle.
+
+    Returns:
+        Hillshade image array.
+    """
     if gdal is None or np is None:
         raise RuntimeError("GDAL and NumPy are required.")
 
@@ -89,7 +112,15 @@ def generate_hillshade(dtm: "np.ndarray", azimuth: int = 315, altitude: int = 45
 
 
 def build_dtm(pipeline: "pdal.Pipeline", resolution: float = 1.0) -> Tuple["np.ndarray", dict]:
-    """Execute a PDAL pipeline to generate a bare-earth DTM."""
+    """Execute a PDAL pipeline to generate a bare-earth DTM.
+
+    Args:
+        pipeline: Configured PDAL pipeline instance.
+        resolution: Output resolution in meters.
+
+    Returns:
+        The DTM array and its rasterio profile.
+    """
     if pdal is None:
         raise RuntimeError("PDAL is not installed.")
     if rasterio is None or np is None:

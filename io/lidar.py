@@ -12,7 +12,14 @@ except Exception:  # pragma: no cover - library may be missing
 
 
 def load_laz(path: str) -> "pdal.Pipeline":
-    """Create a PDAL pipeline that loads a LAZ file."""
+    """Create a PDAL pipeline that loads a LAZ file.
+
+    Args:
+        path: Path to the ``.laz`` or ``.las`` file.
+
+    Returns:
+        The instantiated PDAL pipeline ready for execution.
+    """
     if pdal is None:
         raise RuntimeError("PDAL is not installed.")
     pipeline: Any = {"pipeline": [{"type": "readers.las", "filename": path}]}
