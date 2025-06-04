@@ -35,7 +35,7 @@ try:
         write_geotiff,
     )
     from processing.image import to_uint8
-    from io.lidar import load_laz
+    from io_helpers.lidar import load_laz
     from io.raster import load_raster
 except Exception:  # pragma: no cover - library may be missing
     build_dtm = None
