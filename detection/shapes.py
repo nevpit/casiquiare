@@ -20,6 +20,7 @@ def detect_shapes(
     image: "np.ndarray",
     profile: Optional[Dict[str, Any]] = None,
     size_range: Tuple[float, float] = (50.0, 300.0),
+    score_threshold: float = 0.0,
 ) -> List[Dict[str, Any]]:
     """Detect geometric shapes in a relief image.
 
@@ -28,6 +29,8 @@ def detect_shapes(
         profile: Optional rasterio profile describing the pixel size.
         size_range: Minimum and maximum feature size in the units of the
             ``profile`` transform or pixels if ``profile`` is ``None``.
+        score_threshold: Minimum confidence score for a detection to be
+            included in the results. Defaults to ``0.0`` (no filtering).
 
     Returns:
         A list of detected shape feature dictionaries.
@@ -95,16 +98,17 @@ def detect_shapes(
         # considered equally important (40% each), while size contributes 20%.
         score = 0.4 * edge_strength + 0.4 * shape_reg + 0.2 * size_conf
 
-        features.append(
-            {
-                "bbox": (x, y, w, h),
-                "width": width,
-                "height": height,
-                "num_vertices": len(approx),
-                "shape": shape,
-                "score": float(score),
-            }
-        )
+        if score >= score_threshold:
+            features.append(
+                {
+                    "bbox": (x, y, w, h),
+                    "width": width,
+                    "height": height,
+                    "num_vertices": len(approx),
+                    "shape": shape,
+                    "score": float(score),
+                }
+            )
 
     return features
 
