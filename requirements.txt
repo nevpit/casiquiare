@@ -8,3 +8,4 @@ pyyaml
 scipy
 pytest
 scikit-learn
+Flask
