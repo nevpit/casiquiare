@@ -45,3 +45,25 @@ def test_logs_route_missing(tmp_path):
     with app.test_client() as client:
         resp = client.get("/eyes/logs")
         assert resp.status_code == 404
+
+
+def test_snippet_route(tmp_path):
+    snippet_dir = tmp_path / "area_snippets"
+    snippet_dir.mkdir()
+    snippet_file = snippet_dir / "snippet_0.png"
+    snippet_file.write_bytes(b"data")
+
+    app = create_app()
+    app.config["DETECTIONS_PATH"] = tmp_path
+    with app.test_client() as client:
+        resp = client.get("/eyes/snippets/area_snippets/snippet_0.png")
+        assert resp.status_code == 200
+        assert resp.data == b"data"
+
+
+def test_snippet_route_missing(tmp_path):
+    app = create_app()
+    app.config["DETECTIONS_PATH"] = tmp_path
+    with app.test_client() as client:
+        resp = client.get("/eyes/snippets/nope/snippet.png")
+        assert resp.status_code == 404
