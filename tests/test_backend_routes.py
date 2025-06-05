@@ -69,6 +69,29 @@ def test_snippet_route_missing(tmp_path):
         assert resp.status_code == 404
 
 
+def test_summary_route_latest(tmp_path):
+    older = tmp_path / "a_summary.txt"
+    older.write_text("old", encoding="utf-8")
+    os.utime(older, (0, 0))
+    newer = tmp_path / "b_summary.txt"
+    newer.write_text("new", encoding="utf-8")
+
+    app = create_app()
+    app.config["DETECTIONS_PATH"] = tmp_path
+    with app.test_client() as client:
+        resp = client.get("/eyes/summary")
+        assert resp.status_code == 200
+        assert resp.data.decode() == "new"
+
+
+def test_summary_route_missing(tmp_path):
+    app = create_app()
+    app.config["DETECTIONS_PATH"] = tmp_path
+    with app.test_client() as client:
+        resp = client.get("/eyes/summary")
+        assert resp.status_code == 404
+
+
 def test_tile_route(tmp_path):
     tile_dir = tmp_path / "tiles" / "dtm" / "0" / "0"
     tile_dir.mkdir(parents=True)
