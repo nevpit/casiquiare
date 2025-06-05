@@ -5,6 +5,8 @@ from pathlib import Path
 
 from flask import Flask, send_from_directory
 
+from .utils.config import load_backend_config
+
 from .routes.eyes import bp as eyes_bp
 from .routes.tiles import bp as tiles_bp
 
@@ -15,6 +17,10 @@ def create_app(static_path: Path | None = None) -> Flask:
         static_path = Path(__file__).resolve().parents[2] / "frontend" / "build"
 
     app = Flask(__name__, static_folder=str(static_path))
+
+    # Load environment-based configuration for route handlers
+    app.config.update(load_backend_config())
+
     app.register_blueprint(eyes_bp)
     app.register_blueprint(tiles_bp)
 
