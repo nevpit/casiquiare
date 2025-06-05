@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import Box from '@mui/material/Box';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
-import MapView from './MapView';
 import LogsPanel from './LogsPanel';
 import SummaryPanel from './SummaryPanel';
 
@@ -20,14 +19,12 @@ const Sidebar: React.FC = () => {
         onChange={handleChange}
         sx={{ borderRight: 1, borderColor: 'divider', minWidth: 120 }}
       >
-        <Tab label="Map" />
         <Tab label="Logs" />
         <Tab label="Summary" />
       </Tabs>
       <Box sx={{ flexGrow: 1, p: 2 }}>
-        {tab === 0 && <MapView />}
-        {tab === 1 && <LogsPanel />}
-        {tab === 2 && <SummaryPanel />}
+        {tab === 0 && <LogsPanel />}
+        {tab === 1 && <SummaryPanel />}
       </Box>
     </Box>
   );
