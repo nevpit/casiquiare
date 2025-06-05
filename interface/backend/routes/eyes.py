@@ -4,7 +4,8 @@ import json
 from pathlib import Path
 from typing import Optional
 
-from flask import Blueprint, jsonify, current_app
+import collections
+from flask import Blueprint, jsonify, current_app, request, Response
 
 bp = Blueprint("eyes", __name__, url_prefix="/eyes")
 
@@ -35,6 +36,28 @@ def detections():
     except Exception:
         return jsonify({"error": "Failed to read detections"}), 500
     return jsonify(data)
+
+
+@bp.route("/logs")
+def logs():
+    """Return the last N lines of the casiquiare log file."""
+    num_lines = request.args.get("n", 20)
+    try:
+        n = int(num_lines)
+    except ValueError:
+        n = 20
+
+    log_file = Path(current_app.config.get("LOG_FILE", Path("logs/casiquiare.log")))
+    if not log_file.exists():
+        return jsonify({"error": "Log file not found"}), 404
+
+    try:
+        with log_file.open("r", encoding="utf-8") as fh:
+            tail_lines = list(collections.deque(fh, maxlen=n))
+    except Exception:
+        return jsonify({"error": "Failed to read log file"}), 500
+
+    return Response("".join(tail_lines), mimetype="text/plain")
 
 
 __all__ = ["bp"]
