@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   MapContainer,
   TileLayer,
@@ -9,6 +9,7 @@ import Drawer from '@mui/material/Drawer';
 import Typography from '@mui/material/Typography';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
+import Button from '@mui/material/Button';
 import 'leaflet/dist/leaflet.css';
 
 const { BaseLayer } = LayersControl;
@@ -24,6 +25,8 @@ const MapView: React.FC = () => {
   const [selectedFeature, setSelectedFeature] = useState<any | null>(null);
   const [snippetUrl, setSnippetUrl] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 2000;
   const style = { height: '100vh', width: '100%' } as React.CSSProperties;
 
   useEffect(() => {
@@ -42,6 +45,23 @@ const MapView: React.FC = () => {
       .then((data) => setDetections(data))
       .catch(() => setDetections(null));
   }, []);
+
+  useEffect(() => {
+    setPage(0);
+  }, [detections]);
+
+  const numPages = useMemo(() => {
+    if (!detections || detections.type !== 'FeatureCollection') return 1;
+    return Math.ceil(detections.features.length / PAGE_SIZE);
+  }, [detections]);
+
+  const pagedData = useMemo(() => {
+    if (!detections || detections.type !== 'FeatureCollection') return detections;
+    if (detections.features.length <= PAGE_SIZE) return detections;
+    const start = page * PAGE_SIZE;
+    const end = start + PAGE_SIZE;
+    return { ...detections, features: detections.features.slice(start, end) };
+  }, [detections, page]);
 
   useEffect(() => {
     if (!selectedFeature) {
@@ -94,14 +114,45 @@ const MapView: React.FC = () => {
             <TileLayer url="/tiles/ndvi/{z}/{x}/{y}.png" />
           </BaseLayer>
         </LayersControl>
-        {detections && (
+        {pagedData && (
           <GeoJSON
-            data={detections}
+            data={pagedData}
             style={featureStyle}
             onEachFeature={onEachFeature}
           />
         )}
       </MapContainer>
+      {numPages > 1 && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 10,
+            left: 10,
+            background: 'rgba(255,255,255,0.8)',
+            padding: 4,
+            borderRadius: 4,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+          }}
+        >
+          <Button
+            size="small"
+            disabled={page === 0}
+            onClick={() => setPage((p) => Math.max(p - 1, 0))}
+          >
+            Prev
+          </Button>
+          <span>{page + 1} / {numPages}</span>
+          <Button
+            size="small"
+            disabled={page >= numPages - 1}
+            onClick={() => setPage((p) => Math.min(p + 1, numPages - 1))}
+          >
+            Next
+          </Button>
+        </div>
+      )}
       <Drawer
         anchor="right"
         open={!!selectedFeature}
