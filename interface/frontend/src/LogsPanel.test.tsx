@@ -17,3 +17,15 @@ test('renders refresh button', () => {
   const btn = screen.getByRole('button', { name: /refresh/i });
   expect(btn).toBeInTheDocument();
 });
+
+test('shows no data message on 404', async () => {
+  (global.fetch as jest.Mock).mockResolvedValueOnce({
+    ok: false,
+    status: 404,
+    text: () => Promise.resolve(''),
+  } as Response);
+
+  render(<LogsPanel />);
+  const alert = await screen.findByText(/no logs found/i);
+  expect(alert).toBeInTheDocument();
+});
