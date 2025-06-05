@@ -25,9 +25,10 @@ def test_scan_cli_save_options(tmp_path):
             "io_utils.raster.load_raster",
             return_value=(np.zeros((1, 1)), None, None),
         ),
-        mock.patch("agents.eyes_tools.save_snippets") as save_snip,
+        mock.patch("agents.eyes_tools.save_snippets", return_value=["area_snippets/snippet_0.png"]) as save_snip,
     ):
         cli.main(["scan", "area.tif", "--save-geojson", "--save-snippets"])
         scan.assert_called_with("area.tif")
         assert save_geo.called
         assert save_snip.called
+        assert features[0].snippet_path == "area_snippets/snippet_0.png"

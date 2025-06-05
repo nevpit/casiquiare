@@ -31,11 +31,6 @@ def _run_scan(args: argparse.Namespace) -> None:
     features = scan_area(args.area_id)
     logger.info("Detected %d features", len(features))
 
-    if args.save_geojson:
-        out_file = Path(f"{Path(args.area_id).stem}_features.geojson")
-        save_geojson(features, str(out_file))
-        logger.info("GeoJSON saved to %s", out_file)
-
     if args.save_snippets:
         from importlib import import_module
 
@@ -44,14 +39,20 @@ def _run_scan(args: argparse.Namespace) -> None:
 
         data, _, _ = load_raster(args.area_id)
         image = data[0] if data.ndim == 3 else data
-        feat_dicts = [
-            {"bbox": f.geometry.get("bbox")}
-            for f in features
-            if f.geometry.get("bbox") is not None
+        features_with_bbox = [
+            f for f in features if f.geometry.get("bbox") is not None
         ]
+        feat_dicts = [{"bbox": f.geometry.get("bbox")} for f in features_with_bbox]
         out_dir = Path(f"{Path(args.area_id).stem}_snippets")
-        save_snippets(image, feat_dicts, str(out_dir))
+        paths = save_snippets(image, feat_dicts, str(out_dir))
+        for feat, path in zip(features_with_bbox, paths):
+            feat.snippet_path = path
         logger.info("Snippets saved to %s", out_dir)
+
+    if args.save_geojson:
+        out_file = Path(f"{Path(args.area_id).stem}_features.geojson")
+        save_geojson(features, str(out_file))
+        logger.info("GeoJSON saved to %s", out_file)
 
 
 def main(argv: list[str] | None = None) -> None:

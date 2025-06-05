@@ -38,12 +38,12 @@ const MapView: React.FC = () => {
       setSnippetUrl(null);
       return;
     }
-    const id = selectedFeature.properties?.id;
-    if (id == null) {
+    const snippetPath = selectedFeature.properties?.snippet_path;
+    if (!snippetPath) {
       setSnippetUrl(null);
       return;
     }
-    fetch(`/eyes/snippets/${id}.png`)
+    fetch(`/eyes/snippets/${snippetPath}`)
       .then((res) => {
         if (!res.ok) throw new Error('Failed to load snippet');
         return res.blob();
