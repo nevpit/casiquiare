@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from flask import Flask
 
-from .eyes import bp as eyes_bp
+from .routes.eyes import bp as eyes_bp
 
 
 def create_app() -> Flask:
