@@ -49,6 +49,15 @@ def test_save_geojson(tmp_path):
     assert coll["features"][0]["geometry"]["type"] == "Point"
 
 
+def test_save_geojson_bbox(tmp_path):
+    feats = [make_bbox_feature()]
+    out_file = tmp_path / "bbox.geojson"
+    save_geojson(feats, str(out_file))
+    assert out_file.exists()
+    coll = json.load(open(out_file))
+    assert coll["features"][0]["geometry"]["type"] == "Polygon"
+
+
 def test_save_polygon_geojson(tmp_path):
     transform = geo.Affine(1, 0, 10, 0, -1, 20)
     crs = geo.CRS.from_epsg(4326)

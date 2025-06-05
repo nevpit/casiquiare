@@ -62,6 +62,26 @@ def save_geojson(features: list[Feature], out_path: str) -> None:
     for feat in features:
         data = _feature_to_dict(feat)
         geometry = data.get("geometry")
+        if isinstance(geometry, dict) and geometry.get("type") == "bbox":
+            bbox = geometry.get("bbox")
+            if isinstance(bbox, (list, tuple)) and len(bbox) == 4:
+                x, y, w, h = bbox
+                if w == 0 and h == 0:
+                    geometry = {"type": "Point", "coordinates": [x, y]}
+                elif w == 0 or h == 0:
+                    geometry = {
+                        "type": "LineString",
+                        "coordinates": [[x, y], [x + w, y + h]],
+                    }
+                else:
+                    ring = [
+                        [x, y],
+                        [x + w, y],
+                        [x + w, y + h],
+                        [x, y + h],
+                        [x, y],
+                    ]
+                    geometry = {"type": "Polygon", "coordinates": [ring]}
         props = {k: v for k, v in data.items() if k != "geometry"}
         geo_features.append({"type": "Feature", "geometry": geometry, "properties": props})
 
