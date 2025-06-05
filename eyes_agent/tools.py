@@ -23,7 +23,11 @@ logger = setup_logger(__name__)
 def _to_feature(idx: int, item: Dict[str, Any], source: str) -> Feature:
     """Convert a detection dictionary to a :class:`Feature`."""
     bbox = item.get("bbox")
-    geometry = {"type": "bbox", "bbox": bbox} if bbox else {}
+    contour = item.get("contour")
+    if contour is not None:
+        geometry = {"type": "contour", "contour": contour}
+    else:
+        geometry = {"type": "bbox", "bbox": bbox} if bbox else {}
     width = float(item.get("width", 0.0))
     height = float(item.get("height", 0.0))
     return Feature(
