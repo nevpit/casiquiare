@@ -64,10 +64,12 @@ except Exception:  # pragma: no cover - library may be missing
     multi_scale_canny = None  # type: ignore
 
 try:
-    from detection import detect_shapes, shape_metrics
+    from detection import detect_shapes, detect_lines as _detect_lines, shape_metrics, Line
 except Exception:  # pragma: no cover - library may be missing
     detect_shapes = None  # type: ignore
+    _detect_lines = None  # type: ignore
     shape_metrics = None  # type: ignore
+    Line = None  # type: ignore
 
 
 def save_snippets(image: "np.ndarray", features: List[Dict[str, Any]], out_dir: str) -> List[str]:
@@ -91,6 +93,26 @@ def save_snippets(image: "np.ndarray", features: List[Dict[str, Any]], out_dir: 
         paths.append(str(file_path))
     logger.info("Saved %d snippet files", len(paths))
     return paths
+
+
+def detect_lines(edge_img: "np.ndarray") -> List[Dict[str, Any]]:
+    """Detect straight line segments in a binary edge image."""
+    if _detect_lines is None or np is None:
+        raise RuntimeError("OpenCV and NumPy are required.")
+
+    logger.info("Detecting line segments")
+    lines = _detect_lines(edge_img)
+    result = [
+        {
+            "start": line.start,
+            "end": line.end,
+            "length": line.length,
+            "angle": line.angle,
+        }
+        for line in lines
+    ]
+    logger.info("Detected %d lines", len(result))
+    return result
 
 
 def analyze_lidar(path: str, pipeline: Optional[Dict[str, Any]] = None) -> Iterable["np.ndarray"]:
@@ -465,6 +487,7 @@ TOOLS: Dict[str, Any] = {
     "detect_image_features": detect_image_features,
     "lidar_tile_dtm": lidar_tile_dtm,
     "lidar_feature_detection": lidar_feature_detection,
+    "detect_lines": detect_lines,
     "detect_shapes": detect_shapes,
     "save_snippets": save_snippets,
     "scan_area": scan_area,
@@ -478,6 +501,7 @@ __all__ = [
     "detect_image_features",
     "lidar_tile_dtm",
     "lidar_feature_detection",
+    "detect_lines",
     "detect_shapes",
     "save_snippets",
     "scan_area",

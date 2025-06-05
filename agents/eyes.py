@@ -13,6 +13,7 @@ from .eyes_tools import (
     detect_image_features,
     lidar_tile_dtm,
     lidar_feature_detection,
+    detect_lines,
     detect_shapes,
     TOOLS,
 )
@@ -97,6 +98,10 @@ class Eyes:
     ) -> List[Dict[str, Any]]:
         """Delegate to :func:`agents.eyes_tools.detect_shapes`."""
         return detect_shapes(image, profile, size_range, dilation_size=dilation_size)
+
+    def detect_lines(self, edge_img: "Any") -> List[Dict[str, Any]]:
+        """Delegate to :func:`agents.eyes_tools.detect_lines`."""
+        return detect_lines(edge_img)
 
     # -----------------------------------------------------------------------
 
