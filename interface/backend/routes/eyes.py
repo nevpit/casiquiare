@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Optional
 
 import collections
-from flask import Blueprint, jsonify, current_app, request, Response
+from flask import Blueprint, jsonify, current_app, request, Response, send_file
 
 bp = Blueprint("eyes", __name__, url_prefix="/eyes")
 
@@ -58,6 +58,19 @@ def logs():
         return jsonify({"error": "Failed to read log file"}), 500
 
     return Response("".join(tail_lines), mimetype="text/plain")
+
+
+@bp.route("/snippets/<path:filename>")
+def snippet_file(filename: str):
+    """Serve PNG snippet files from the <area>_snippets directories."""
+    base_dir = Path(current_app.config.get("DETECTIONS_PATH", Path.cwd()))
+    file_path = base_dir / filename
+    if not file_path.is_file():
+        return jsonify({"error": "Snippet not found"}), 404
+    try:
+        return send_file(file_path, mimetype="image/png")
+    except Exception:
+        return jsonify({"error": "Failed to read snippet"}), 500
 
 
 __all__ = ["bp"]
