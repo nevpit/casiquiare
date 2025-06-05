@@ -169,3 +169,10 @@ steps:
     args:
       path: tile.laz
 ```
+
+## Frontend map interface
+
+The React dashboard displays detections on an interactive map. To keep the map
+snappy, GeoJSON layers are paginated when more than 2 000 features are loaded.
+Use the controls in the bottom-left corner of the map to step through each
+page of results.
