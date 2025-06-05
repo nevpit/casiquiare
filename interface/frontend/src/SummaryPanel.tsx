@@ -2,34 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Button from '@mui/material/Button';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
-
-function renderMarkdown(text: string): string {
-  const escaped = text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-  return escaped
-    .split(/\n\n+/)
-    .map((block) => {
-      const line = block.trim();
-      if (line.startsWith('### ')) {
-        return `<h3>${line.slice(4)}</h3>`;
-      }
-      if (line.startsWith('## ')) {
-        return `<h2>${line.slice(3)}</h2>`;
-      }
-      if (line.startsWith('# ')) {
-        return `<h1>${line.slice(2)}</h1>`;
-      }
-      if (line.startsWith('- ')) {
-        const items = line.split(/\n-/).map((l) => l.replace(/^\-\s*/, '').trim());
-        const lis = items.map((t) => `<li>${t}</li>`).join('');
-        return `<ul>${lis}</ul>`;
-      }
-      return `<p>${line}</p>`;
-    })
-    .join('');
-}
+import ReactMarkdown from 'react-markdown';
 
 const SummaryPanel: React.FC = () => {
   const [summary, setSummary] = useState<string>('');
@@ -61,10 +34,9 @@ const SummaryPanel: React.FC = () => {
       <Button variant="contained" onClick={fetchSummary} style={{ marginBottom: 8 }}>
         Refresh
       </Button>
-      <div
-        style={{ maxHeight: 300, overflowY: 'auto', padding: 8 }}
-        dangerouslySetInnerHTML={{ __html: renderMarkdown(summary) }}
-      />
+      <div style={{ maxHeight: 300, overflowY: 'auto', padding: 8 }}>
+        <ReactMarkdown>{summary}</ReactMarkdown>
+      </div>
       <Snackbar
         open={!!msg}
         autoHideDuration={3000}
