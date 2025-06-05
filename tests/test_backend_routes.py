@@ -112,3 +112,26 @@ def test_tile_route_missing(tmp_path):
     with app.test_client() as client:
         resp = client.get("/tiles/dtm/0/0/0.png")
         assert resp.status_code == 404
+
+
+def test_spa_fallback(tmp_path):
+    build_dir = tmp_path / "build"
+    build_dir.mkdir()
+    (build_dir / "index.html").write_text("index", encoding="utf-8")
+    static_dir = build_dir / "static"
+    static_dir.mkdir()
+    (static_dir / "test.txt").write_text("data", encoding="utf-8")
+
+    app = create_app(static_path=build_dir)
+    with app.test_client() as client:
+        resp = client.get("/")
+        assert resp.status_code == 200
+        assert resp.data.decode() == "index"
+
+        resp = client.get("/anything/here")
+        assert resp.status_code == 200
+        assert resp.data.decode() == "index"
+
+        resp = client.get("/static/test.txt")
+        assert resp.status_code == 200
+        assert resp.data.decode() == "data"
