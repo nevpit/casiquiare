@@ -7,6 +7,8 @@ import {
 } from 'react-leaflet';
 import Drawer from '@mui/material/Drawer';
 import Typography from '@mui/material/Typography';
+import Snackbar from '@mui/material/Snackbar';
+import Alert from '@mui/material/Alert';
 import 'leaflet/dist/leaflet.css';
 
 const { BaseLayer } = LayersControl;
@@ -21,12 +23,20 @@ const MapView: React.FC = () => {
   const [detections, setDetections] = useState<any | null>(null);
   const [selectedFeature, setSelectedFeature] = useState<any | null>(null);
   const [snippetUrl, setSnippetUrl] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
   const style = { height: '100vh', width: '100%' } as React.CSSProperties;
 
   useEffect(() => {
     fetch('/eyes/detections')
       .then((res) => {
-        if (!res.ok) throw new Error('Failed to load detections');
+        if (!res.ok) {
+          if (res.status === 404) {
+            setMsg('No detections found');
+          } else {
+            setMsg('Failed to load detections');
+          }
+          throw new Error('Failed to load detections');
+        }
         return res.json();
       })
       .then((data) => setDetections(data))
@@ -117,6 +127,16 @@ const MapView: React.FC = () => {
           )}
         </div>
       </Drawer>
+      <Snackbar
+        open={!!msg}
+        autoHideDuration={3000}
+        onClose={() => setMsg(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity="info" sx={{ width: '100%' }}>
+          {msg}
+        </Alert>
+      </Snackbar>
     </>
   );
 };
