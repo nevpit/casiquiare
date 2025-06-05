@@ -1,9 +1,9 @@
 import React from 'react';
-import MapView from './MapView';
+import Sidebar from './Sidebar';
 import './App.css';
 
 function App() {
-  return <MapView />;
+  return <Sidebar />;
 }
 
 export default App;
