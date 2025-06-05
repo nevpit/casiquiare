@@ -23,6 +23,14 @@ def _latest_geojson(base_dir: Path) -> Optional[Path]:
     return max(files, key=lambda f: f.stat().st_mtime)
 
 
+def _latest_summary(base_dir: Path) -> Optional[Path]:
+    """Return the newest <area>_summary.txt file if present."""
+    files = list(base_dir.glob("*_summary.txt"))
+    if not files:
+        return None
+    return max(files, key=lambda f: f.stat().st_mtime)
+
+
 @bp.route("/detections")
 def detections():
     """Return the most recent <area>_features.geojson as JSON."""
@@ -36,6 +44,20 @@ def detections():
     except Exception:
         return jsonify({"error": "Failed to read detections"}), 500
     return jsonify(data)
+
+
+@bp.route("/summary")
+def summary():
+    """Return the most recent <area>_summary.txt as plain text."""
+    base_dir = Path(current_app.config.get("DETECTIONS_PATH", Path.cwd()))
+    latest = _latest_summary(base_dir)
+    if latest is None:
+        return jsonify({"error": "No summary file found"}), 404
+    try:
+        text = latest.read_text(encoding="utf-8")
+    except Exception:
+        return jsonify({"error": "Failed to read summary"}), 500
+    return Response(text, mimetype="text/plain")
 
 
 @bp.route("/logs")
