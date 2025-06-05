@@ -20,7 +20,7 @@ except Exception:  # pragma: no cover - library may be missing
     Affine = None  # type: ignore
     CRS = None  # type: ignore
 
-from processing.geo import bbox_to_polygon, bbox_centroid
+from processing.geo import bbox_to_polygon, bbox_centroid, contour_to_polygon
 
 
 def _feature_to_dict(feature: Feature) -> dict:
@@ -104,15 +104,30 @@ def save_polygon_geojson(
     geo_features = []
     for feat in features:
         data = _feature_to_dict(feat)
-        bbox = data.get("geometry", {}).get("bbox")
-        if not isinstance(bbox, (list, tuple)) or len(bbox) != 4:
-            continue
-        ring = bbox_to_polygon(tuple(int(v) for v in bbox), transform, crs)
-        centroid = bbox_centroid(tuple(int(v) for v in bbox), transform, crs)
-        props = {
-            k: v for k, v in data.items() if k != "geometry"
-        }
-        props["centroid"] = centroid
+        geom = data.get("geometry", {})
+        ring = None
+        centroid = None
+        if isinstance(geom, dict) and "contour" in geom:
+            contour = geom.get("contour")
+            if contour is None:
+                continue
+            ring = contour_to_polygon(contour, transform, crs)
+            xs = [pt[0] for pt in ring[:-1]] if ring else []
+            ys = [pt[1] for pt in ring[:-1]] if ring else []
+            if xs and ys:
+                centroid = (
+                    round(sum(xs) / len(xs), 6),
+                    round(sum(ys) / len(ys), 6),
+                )
+        else:
+            bbox = geom.get("bbox")
+            if not isinstance(bbox, (list, tuple)) or len(bbox) != 4:
+                continue
+            ring = bbox_to_polygon(tuple(int(v) for v in bbox), transform, crs)
+            centroid = bbox_centroid(tuple(int(v) for v in bbox), transform, crs)
+        props = {k: v for k, v in data.items() if k != "geometry"}
+        if centroid is not None:
+            props["centroid"] = centroid
         geo_features.append(
             {
                 "type": "Feature",
@@ -142,11 +157,19 @@ def features_to_shapely(
 
     polygons: List["Polygon"] = []
     for feat in features:
-        bbox = feat.geometry.get("bbox") if isinstance(feat.geometry, dict) else None
-        if not isinstance(bbox, (list, tuple)) or len(bbox) != 4:
-            continue
-        poly = bbox_to_polygon(tuple(int(v) for v in bbox), transform, crs, as_shapely=True)
-        polygons.append(poly)
+        geom = feat.geometry if isinstance(feat.geometry, dict) else {}
+        if "contour" in geom:
+            contour = geom.get("contour")
+            if contour is None:
+                continue
+            ring = contour_to_polygon(contour, transform, crs)
+            polygons.append(Polygon(ring))
+        else:
+            bbox = geom.get("bbox")
+            if not isinstance(bbox, (list, tuple)) or len(bbox) != 4:
+                continue
+            poly = bbox_to_polygon(tuple(int(v) for v in bbox), transform, crs, as_shapely=True)
+            polygons.append(poly)
     return polygons
 
 
