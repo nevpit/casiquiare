@@ -22,6 +22,9 @@ profile allows the results to be expressed in meters so features outside the
 extracting edges and the contour size limits are exposed as parameters so
 you can tune detection sensitivity to each dataset.
 
+The lower-level `detect_lines` helper extracts straight line segments from a
+binary edge image using the Hough transform.
+
 `merge_detections` combines LiDAR and satellite candidates when their
 centroids fall within 25 m, helping reduce duplicates across sensors.
 
@@ -148,6 +151,11 @@ steps:
     args:
       image: ${hillshade}
       profile: ${profile}
+
+  - name: hough-lines
+    tool: detect_lines
+    args:
+      edge_img: ${edge_mask}
 
   - name: save-snips
     tool: save_snippets
