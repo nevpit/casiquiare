@@ -3,12 +3,12 @@ import sys
 from pathlib import Path
 import pytest
 
-data_paths_path = Path(__file__).resolve().parents[1] / "io" / "data_paths.py"
-spec = importlib.util.spec_from_file_location("io.data_paths", data_paths_path)
+data_paths_path = Path(__file__).resolve().parents[1] / "io_utils" / "data_paths.py"
+spec = importlib.util.spec_from_file_location("io_utils.data_paths", data_paths_path)
 data_paths = importlib.util.module_from_spec(spec)
 assert spec and spec.loader
 spec.loader.exec_module(data_paths)  # type: ignore[arg-type]
-sys.modules["io.data_paths"] = data_paths
+sys.modules["io_utils.data_paths"] = data_paths
 
 
 def test_load_mapping(tmp_path):

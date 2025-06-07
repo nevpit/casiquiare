@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any, Dict, List
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from log_config import setup_logger
@@ -14,7 +15,7 @@ except Exception:  # pragma: no cover - library may be missing
 
 from detection import Feature
 from detection.shapes import detect_shapes
-from io.raster import load_raster
+from io_utils.raster import load_raster
 
 logger = setup_logger(__name__)
 
@@ -22,7 +23,11 @@ logger = setup_logger(__name__)
 def _to_feature(idx: int, item: Dict[str, Any], source: str) -> Feature:
     """Convert a detection dictionary to a :class:`Feature`."""
     bbox = item.get("bbox")
-    geometry = {"type": "bbox", "bbox": bbox} if bbox else {}
+    contour = item.get("contour")
+    if contour is not None:
+        geometry = {"type": "contour", "contour": contour}
+    else:
+        geometry = {"type": "bbox", "bbox": bbox} if bbox else {}
     width = float(item.get("width", 0.0))
     height = float(item.get("height", 0.0))
     return Feature(
@@ -33,6 +38,14 @@ def _to_feature(idx: int, item: Dict[str, Any], source: str) -> Feature:
         confidence=float(item.get("score", 0.0)),
         source=source,
     )
+
+
+def _feature_summary(features: List[Feature]) -> Dict[str, Any]:
+    """Return detection summary stats for logging."""
+    counts = len(features)
+    type_counts = Counter(f.feature_type for f in features)
+    scores = sorted((f.confidence for f in features), reverse=True)[:3]
+    return {"count": counts, "types": dict(type_counts), "top_scores": scores}
 
 
 def _scan_image(image: "np.ndarray", profile: Dict[str, Any] | None = None, source: str = "raster") -> List[Feature]:
@@ -57,6 +70,13 @@ def scan_area(area_id: str | Dict[str, Any]) -> List[Feature]:
         logger.info("Scanning raster %s", area_id)
         features = _scan_image(image, profile, source="raster")
         logger.info("%d features found in %s", len(features), area_id)
+        summary = _feature_summary(features)
+        logger.info(
+            "Summary for %s: types=%s, top_scores=%s",
+            area_id,
+            summary["types"],
+            summary["top_scores"],
+        )
         return features
 
     if isinstance(area_id, dict):
@@ -68,6 +88,13 @@ def scan_area(area_id: str | Dict[str, Any]) -> List[Feature]:
         logger.info("Scanning %s image", source)
         features = _scan_image(image, profile, source=source)
         logger.info("%d features found in %s image", len(features), source)
+        summary = _feature_summary(features)
+        logger.info(
+            "Summary for %s image: types=%s, top_scores=%s",
+            source,
+            summary["types"],
+            summary["top_scores"],
+        )
         return features
 
     raise TypeError("area_id must be a str path or a dictionary")
@@ -101,7 +128,21 @@ def scan_tiles_concurrent(
         }
         for future in as_completed(future_to_idx):
             idx = future_to_idx[future]
-            results[idx] = future.result()
+            try:
+                feats = future.result()
+            except Exception as exc:
+                logger.error("Tile %s failed: %s", area_ids[idx], exc)
+                feats = []
+            results[idx] = feats
+            summary = _feature_summary(feats)
+            tile_label = area_ids[idx]
+            logger.info(
+                "Tile %s summary: %d features, types=%s, top_scores=%s",
+                tile_label,
+                summary["count"],
+                summary["types"],
+                summary["top_scores"],
+            )
             logger.debug("Finished tile %d", idx)
     logger.info("Completed scanning tiles")
     return results

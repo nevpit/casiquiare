@@ -17,14 +17,16 @@ except Exception:  # pragma: no cover - library may be missing
 
 try:
     from processing.image import to_uint8
+    from .edges import multi_scale_canny
 except Exception:  # pragma: no cover - library may be missing
     to_uint8 = None  # type: ignore
+    multi_scale_canny = None  # type: ignore
 
 from typing import Any, Dict
 
 
-def shape_metrics(contour: "np.ndarray") -> Dict[str, float]:
-    """Return basic geometric metrics for a contour."""
+def shape_metrics(contour: "np.ndarray") -> Dict[str, Any]:
+    """Return basic geometric metrics and shape classification for a contour."""
     if cv2 is None or np is None:
         raise RuntimeError("OpenCV and NumPy are required.")
 
@@ -36,11 +38,27 @@ def shape_metrics(contour: "np.ndarray") -> Dict[str, float]:
 
     circularity = (4 * np.pi * area / (perimeter * perimeter)) if perimeter != 0 else 0.0
 
+    approx = cv2.approxPolyDP(contour, 0.02 * perimeter, True)
+    num_vertices = len(approx)
+
+    shape = "polygon"
+    if num_vertices == 3:
+        shape = "triangle"
+    elif num_vertices == 4:
+        shape = "rectangle"
+    else:
+        if circularity > 0.8:
+            shape = "circle"
+        elif max(w, h) / max(1, min(w, h)) > 5:
+            shape = "linear"
+
     return {
         "area": float(area),
         "perimeter": float(perimeter),
         "aspect_ratio": float(aspect_ratio),
         "circularity": float(circularity),
+        "num_vertices": int(num_vertices),
+        "shape": shape,
     }
 
 
@@ -55,7 +73,7 @@ class Line:
 
 
 def detect_edges(image: "np.ndarray") -> "np.ndarray":
-    """Detect edges in a relief image using the Canny algorithm."""
+    """Detect edges in a relief image using a multi-scale Canny strategy."""
     if cv2 is None or np is None:
         raise RuntimeError("OpenCV and NumPy are required.")
 
@@ -65,30 +83,8 @@ def detect_edges(image: "np.ndarray") -> "np.ndarray":
     else:
         arr_u8 = arr.astype(np.uint8)
 
-    blurred = cv2.GaussianBlur(arr_u8, (3, 3), 0)
-    edges = cv2.Canny(blurred, 30, 90)
+    edges = multi_scale_canny(arr_u8)
     return edges
-
-
-def shape_metrics(contour: "np.ndarray") -> dict:
-    """Return basic geometric metrics for a contour."""
-    if cv2 is None or np is None:
-        raise RuntimeError("OpenCV and NumPy are required.")
-
-    area = cv2.contourArea(contour)
-    perimeter = cv2.arcLength(contour, True)
-
-    x, y, w, h = cv2.boundingRect(contour)
-    aspect_ratio = w / h if h != 0 else 0.0
-
-    circularity = (4 * np.pi * area / (perimeter * perimeter)) if perimeter != 0 else 0.0
-
-    return {
-        "area": float(area),
-        "perimeter": float(perimeter),
-        "aspect_ratio": float(aspect_ratio),
-        "circularity": float(circularity),
-    }
 
 def find_contours(edge_img: "np.ndarray") -> list["np.ndarray"]:
     """Convert an edge image into contours using OpenCV."""
@@ -141,5 +137,4 @@ __all__ = [
     "find_contours",
     "filter_contours",
     "detect_lines",
-    "shape_metrics",
 ]

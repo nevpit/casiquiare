@@ -3,6 +3,7 @@
 from .shapes import detect_shapes
 from .merge import merge_detections
 from .feature import Feature
+from .ml_filter import train_post_filter, apply_post_filter
 
 __all__ = [
     "Line",
@@ -13,5 +14,7 @@ __all__ = [
     "shape_metrics",
     "detect_shapes",
     "merge_detections",
+    "train_post_filter",
+    "apply_post_filter",
     "Feature",
 ]

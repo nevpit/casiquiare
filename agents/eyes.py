@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple, Iterable, Optional
 
 from .eyes_tools import (
     analyze_lidar,
@@ -13,33 +13,34 @@ from .eyes_tools import (
     detect_image_features,
     lidar_tile_dtm,
     lidar_feature_detection,
+    detect_lines,
     detect_shapes,
     TOOLS,
 )
 
 try:
-    from openai import OpenAI
+    import openai
 except Exception:  # pragma: no cover - library may be missing
-    OpenAI = None
+    openai = None
 
 
 @dataclass
 class Eyes:
     """Remote-sensing and GIS agent."""
 
-    api_key: Optional[str] = None
     model: str = "gpt-4-turbo"
-    client: Any = field(init=False, default=None)
     tools: Dict[str, Any] = field(init=False, default_factory=dict)
 
     def __post_init__(self) -> None:
-        if OpenAI is not None:
-            self.client = OpenAI(api_key=self.api_key or os.getenv("OPENAI_API_KEY"))
+        if openai is not None:
+            openai.api_key = os.getenv("OPENAI_API_KEY")
         self.tools = TOOLS
 
     # Thin wrappers around utility functions ---------------------------------
 
-    def analyze_lidar(self, path: str, pipeline: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+    def analyze_lidar(
+        self, path: str, pipeline: Optional[Dict[str, Any]] = None
+    ) -> Iterable["np.ndarray"]:
         """Delegate to :func:`agents.eyes_tools.analyze_lidar`."""
         return analyze_lidar(path, pipeline)
 
@@ -57,33 +58,56 @@ class Eyes:
         """Delegate to :func:`agents.eyes_tools.detect_image_features`."""
         return detect_image_features(path)
 
-    def lidar_tile_dtm(self, path: str, resolution: float = 1.0) -> Dict[str, Any]:
+    def lidar_tile_dtm(
+        self,
+        path: str,
+        resolution: float = 1.0,
+        *,
+        out_dir: str | None = None,
+        return_paths: bool = False,
+    ) -> Dict[str, Any]:
         """Delegate to :func:`agents.eyes_tools.lidar_tile_dtm`."""
-        return lidar_tile_dtm(path, resolution)
+        return lidar_tile_dtm(path, resolution, out_dir=out_dir, return_paths=return_paths)
 
     def lidar_feature_detection(
         self,
         path: str,
         resolution: float = 1.0,
         size_range: Tuple[float, float] = (50.0, 300.0),
+        dilation_size: int = 3,
+        *,
+        out_dir: str | None = None,
+        return_paths: bool = False,
     ) -> Dict[str, Any]:
         """Delegate to :func:`agents.eyes_tools.lidar_feature_detection`."""
-        return lidar_feature_detection(path, resolution, size_range)
+        return lidar_feature_detection(
+            path,
+            resolution,
+            size_range,
+            dilation_size,
+            out_dir=out_dir,
+            return_paths=return_paths,
+        )
 
     def detect_shapes(
         self,
         image: "Any",
         profile: Optional[Dict[str, Any]] = None,
         size_range: Tuple[float, float] = (50.0, 300.0),
+        dilation_size: int = 3,
     ) -> List[Dict[str, Any]]:
         """Delegate to :func:`agents.eyes_tools.detect_shapes`."""
-        return detect_shapes(image, profile, size_range)
+        return detect_shapes(image, profile, size_range, dilation_size=dilation_size)
+
+    def detect_lines(self, edge_img: "Any") -> List[Dict[str, Any]]:
+        """Delegate to :func:`agents.eyes_tools.detect_lines`."""
+        return detect_lines(edge_img)
 
     # -----------------------------------------------------------------------
 
     def summarize(self, findings: str) -> str:
         """Generate a factual summary using an OpenAI model."""
-        if self.client is None:
+        if openai is None:
             raise RuntimeError("OpenAI SDK is not available.")
         messages = [
             {
@@ -96,5 +120,5 @@ class Eyes:
             },
             {"role": "user", "content": findings},
         ]
-        response = self.client.chat.completions.create(model=self.model, messages=messages)
+        response = openai.ChatCompletion.create(model=self.model, messages=messages)
         return response.choices[0].message.content.strip()

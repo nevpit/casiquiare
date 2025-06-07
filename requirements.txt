@@ -7,3 +7,5 @@ pyproj
 pyyaml
 scipy
 pytest
+scikit-learn
+Flask
