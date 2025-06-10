@@ -14,7 +14,7 @@ def test_imports():
     raster_spec.loader.exec_module(raster_module)  # type: ignore[arg-type]
     sys.modules["io_utils.raster"] = raster_module
 
-    importlib.import_module("agents.eyes_tools")
+    importlib.import_module("eyes.tools")
 
     # Import io_helpers.lidar explicitly from file to ensure local module is used
     lidar_path = Path(__file__).resolve().parents[1] / "io_helpers" / "lidar.py"

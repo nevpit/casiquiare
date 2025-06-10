@@ -4,7 +4,7 @@ logging:
   log_dir: logs               # where log files are written
   level: INFO                 # logging level
 
-eyes_agent:
+eyes:
   model: gpt-4-turbo  # API key is read from OPENAI_API_KEY
 
 processing:
