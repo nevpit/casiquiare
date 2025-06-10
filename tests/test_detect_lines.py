@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from detection import lidar
-import agents.eyes_tools as eyes_tools
+import eyes.tools as eyes_tools
 
 
 def test_detect_lines_runtime():
