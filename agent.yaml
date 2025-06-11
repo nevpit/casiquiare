@@ -29,3 +29,104 @@ tools:
             default: 300.0
         required:
           - path
+  - type: python
+    function:
+      name: train_model
+      description: Train a random-forest classifier on feature data.
+      entrypoint: agents.brain_tools:train_model
+      parameters:
+        type: object
+        properties:
+          data:
+            type: array
+            description: Training feature matrix.
+            items:
+              type: array
+              items:
+                type: number
+          labels:
+            type: array
+            description: Target labels for each row.
+            items:
+              type: integer
+          n_estimators:
+            type: integer
+            description: Number of trees in the forest.
+            default: 100
+        required:
+          - data
+          - labels
+  - type: python
+    function:
+      name: score_likelihood
+      description: Score feature vectors using a trained model.
+      entrypoint: agents.brain_tools:score_likelihood
+      parameters:
+        type: object
+        properties:
+          model:
+            type: object
+            description: Model returned by train_model.
+          data:
+            type: array
+            description: Feature rows to score.
+            items:
+              type: array
+              items:
+                type: number
+        required:
+          - model
+          - data
+  - type: python
+    function:
+      name: validate_features
+      description: Filter features, keeping only those with valid geometry.
+      entrypoint: agents.brain_tools:validate_features
+      parameters:
+        type: object
+        properties:
+          features:
+            type: array
+            description: Feature dictionaries to validate.
+            items:
+              type: object
+        required:
+          - features
+  - type: python
+    function:
+      name: cluster_features
+      description: Cluster feature vectors using k-means.
+      entrypoint: agents.brain_tools:cluster_features
+      parameters:
+        type: object
+        properties:
+          features:
+            type: array
+            description: Feature vectors to cluster.
+            items:
+              type: array
+              items:
+                type: number
+          n_clusters:
+            type: integer
+            description: Number of clusters to create.
+            default: 2
+        required:
+          - features
+  - type: python
+    function:
+      name: exec_code
+      description: Execute arbitrary Python code and return the local variables.
+      entrypoint: agents.brain_tools:exec_code
+      parameters:
+        type: object
+        properties:
+          code:
+            type: string
+            description: Python code to run.
+          local_vars:
+            type: object
+            description: Optional initial variables for the execution context.
+            default: {}
+        required:
+          - code

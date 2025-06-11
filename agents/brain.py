@@ -6,6 +6,8 @@ import os
 from dataclasses import dataclass, field
 from typing import Any, Dict
 
+from . import brain_tools
+
 try:
     import openai
 except Exception:  # pragma: no cover - library may be missing
@@ -23,7 +25,7 @@ class Brain:
     def __post_init__(self) -> None:
         if openai is not None:
             openai.api_key = os.getenv("OPENAI_API_KEY")
-        self.tools = TOOLS
+        self.tools = brain_tools.TOOLS
         self.system_prompt = (
             "You are the Brain agent, a data engineer & ML modeler specializing in "
             "archaeological site prediction. You rigorously analyze data, run code, "
@@ -47,6 +49,6 @@ class Brain:
         return response.choices[0].message.content.strip()
 
 
-TOOLS: Dict[str, Any] = {}
+TOOLS: Dict[str, Any] = brain_tools.TOOLS
 
 __all__ = ["Brain", "TOOLS"]
