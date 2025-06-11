@@ -32,7 +32,7 @@ Utility modules under `processing` extend the toolkit with low-level I/O helpers
 
 The `write_geotiff` function in `processing/lidar.py` saves an array to a
 GeoTIFF file using a provided rasterio profile so the CRS and transform are
-preserved. LiDAR file readers are provided in `io_helpers/lidar.py`.
+preserved. LiDAR file readers are provided in `io_utils/lidar.py`.
 
 `lidar_tile_dtm`, `lidar_feature_detection` and `scan_lidar_area` can optionally
 write their intermediate rasters to disk. Pass ``out_dir`` to specify an output
