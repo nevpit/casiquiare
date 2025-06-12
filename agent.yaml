@@ -80,7 +80,7 @@ tools:
   - type: python
     function:
       name: validate_features
-      description: Filter features, keeping only those with valid geometry.
+      description: Validate each feature's size and shape against typical mound statistics.
       entrypoint: agents.brain.brain_tools:validate_features
       parameters:
         type: object
