@@ -177,6 +177,120 @@ def score_likelihood(model: Any, data: Sequence[Sequence[float]]) -> List[float]
     return scores.tolist()
 
 
+def _parse_bbox(spec: Any) -> tuple[float, float, float, float]:
+    """Return a bounding box tuple from ``spec``."""
+    if isinstance(spec, (list, tuple)) and len(spec) == 4:
+        return tuple(float(v) for v in spec)
+    if isinstance(spec, str):
+        import json
+        from pathlib import Path
+
+        path = Path(spec)
+        if path.exists():
+            with path.open("r", encoding="utf-8") as fh:
+                obj = json.load(fh)
+            return _parse_bbox(obj)
+    if isinstance(spec, dict):
+        if "bbox" in spec and len(spec["bbox"]) == 4:
+            return tuple(float(v) for v in spec["bbox"])
+        if spec.get("type") == "Feature" and "geometry" in spec:
+            return _parse_bbox(spec["geometry"])
+        if spec.get("type") == "FeatureCollection":
+            boxes = [
+                _parse_bbox(f.get("geometry") or f.get("bbox"))
+                for f in spec.get("features", [])
+                if f.get("geometry") or f.get("bbox")
+            ]
+            xs = [b[0] for b in boxes] + [b[2] for b in boxes]
+            ys = [b[1] for b in boxes] + [b[3] for b in boxes]
+            if xs and ys:
+                return min(xs), min(ys), max(xs), max(ys)
+        if spec.get("type") in {"Polygon", "MultiPolygon"}:
+            import numpy as _np
+
+            coords = _np.array(spec.get("coordinates", [])).reshape(-1, 2)
+            xs = coords[:, 0]
+            ys = coords[:, 1]
+            return float(xs.min()), float(ys.min()), float(xs.max()), float(ys.max())
+    raise ValueError("Unable to parse region spec")
+
+
+def predict_sites(
+    model: Any,
+    input_data: Any,
+    *,
+    grid_size: float = 0.01,
+    top_n: int = 5,
+) -> Dict[str, Any]:
+    """Predict site likelihoods for feature vectors or a region.
+
+    Parameters
+    ----------
+    model:
+        Trained classifier supporting ``predict_proba`` or ``predict``.
+    input_data:
+        Either a sequence of feature vectors or a region specification. A region
+        can be provided as a ``bbox`` tuple, a GeoJSON mapping or the path to a
+        GeoJSON file.
+    grid_size:
+        Spacing in degrees between sampled points when ``input_data`` describes
+        a region.
+    top_n:
+        Number of highest scoring locations to include in the summary.
+
+    Returns
+    -------
+    Dict[str, Any]
+        Dictionary with keys ``scores_map`` and ``summary`` containing the
+        predicted probabilities and a summary of results.
+    """
+
+    if np is None:
+        raise RuntimeError("NumPy is required.")
+
+    # Pre-scored feature vectors
+    if isinstance(input_data, Iterable) and input_data and not isinstance(input_data, (str, bytes)):
+        first = next(iter(input_data))
+        if isinstance(first, Iterable) and not isinstance(first, (str, bytes)):
+            scores = np.array(score_likelihood(model, input_data))
+            summary = {
+                "min_score": float(scores.min()),
+                "max_score": float(scores.max()),
+            }
+            top_idx = scores.argsort()[::-1][:top_n]
+            summary["top_indices"] = top_idx.tolist()
+            logger.info("Scored %d feature vectors", len(scores))
+            result: Dict[str, Any] = {"scores_map": scores.tolist(), "summary": summary}
+            if hasattr(model, "feature_importances_"):
+                result["feature_importances"] = [float(v) for v in model.feature_importances_]
+            return result
+
+    bbox = _parse_bbox(input_data)
+    xs = np.arange(bbox[0], bbox[2] + grid_size, grid_size)
+    ys = np.arange(bbox[1], bbox[3] + grid_size, grid_size)
+    grid = np.array([(x, y) for y in ys for x in xs], dtype=float)
+
+    scores = np.array(score_likelihood(model, grid))
+    heatmap = scores.reshape(len(ys), len(xs))
+    top_idx = scores.argsort()[::-1][:top_n]
+    top_coords = [grid[i].tolist() for i in top_idx]
+    summary = {
+        "bbox": bbox,
+        "min_score": float(scores.min()),
+        "max_score": float(scores.max()),
+        "top_coords": top_coords,
+    }
+
+    logger.info(
+        "Scoring region %s – produced heatmap with shape %s", bbox, heatmap.shape
+    )
+
+    result = {"scores_map": heatmap, "summary": summary}
+    if hasattr(model, "feature_importances_"):
+        result["feature_importances"] = [float(v) for v in model.feature_importances_]
+    return result
+
+
 def validate_features(features: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Return features that contain a valid geometry entry."""
     valid: List[Dict[str, Any]] = []
@@ -215,6 +329,7 @@ TOOLS: Dict[str, Any] = {
     "ingest_training_data": ingest_training_data,
     "train_model": train_model,
     "score_likelihood": score_likelihood,
+    "predict_sites": predict_sites,
     "validate_features": validate_features,
     "cluster_features": cluster_features,
     "exec_code": exec_code,
@@ -224,6 +339,7 @@ __all__ = [
     "ingest_training_data",
     "train_model",
     "score_likelihood",
+    "predict_sites",
     "validate_features",
     "cluster_features",
     "exec_code",
