@@ -15,7 +15,7 @@ from .brain_outputs import (
     ClusterResult,
     ExecutionResult,
 )
-from world_state import world_state
+from world_state import world_state, log_message
 
 try:
     import openai
@@ -42,7 +42,9 @@ class Brain:
             "You are the Brain agent, a data engineer & ML modeler specializing in "
             "archaeological site prediction. You rigorously analyze data, run code, "
             "and return factual, reproducible results. Use tools for modeling, "
-            "statistics, and clustering – avoid speculation."
+            "statistics, and clustering – avoid speculation. Always respond with JSON "
+            "only, formatted as {\"agent\": \"brain\", \"type\": <type>, \"content\": <data>} "
+            "and wrap it in a single markdown block."
         )
 
     def set_system_prompt(self, prompt: str) -> None:
@@ -58,7 +60,9 @@ class Brain:
             {"role": "user", "content": query},
         ]
         response = openai.ChatCompletion.create(model=self.model, messages=messages)
-        return response.choices[0].message.content.strip()
+        reply = response.choices[0].message.content.strip()
+        log_message("brain", "chat", reply)
+        return reply
 
     # ------------------------------------------------------------------
     # Wrappers around tool functions that also update the world_state
@@ -94,6 +98,7 @@ class Brain:
         world_state["latest_model"] = asdict(info)
         logger.info("Stored latest_model in world_state")
         logger.debug("Model metrics: %s", info.metrics)
+        log_message("brain", "train_model", asdict(info))
         return info
 
     def score_likelihood(self, model: Any, data: Sequence[Sequence[float]]):
@@ -101,6 +106,7 @@ class Brain:
         scores = brain_tools.score_likelihood(model, data)
         world_state["latest_prediction"] = scores
         logger.info("Stored latest_prediction scores in world_state")
+        log_message("brain", "score_likelihood", scores)
         return scores
 
     def predict_sites(
@@ -125,6 +131,7 @@ class Brain:
         )
         world_state["latest_prediction"] = asdict(pred)
         logger.info("Stored latest_prediction map in world_state")
+        log_message("brain", "predict_sites", asdict(pred))
         return pred
 
     def validate_features(self, features: Sequence[Dict[str, Any]]):
@@ -132,6 +139,7 @@ class Brain:
         res = brain_tools.validate_features(features)
         world_state["validation"] = res
         logger.info("Stored validation results in world_state")
+        log_message("brain", "validate_features", res)
         return res
 
     def cluster_features(
@@ -152,6 +160,7 @@ class Brain:
             clusters["latest"] = asdict(cluster)
         world_state["clusters"] = clusters
         logger.info("Stored clusters summary in world_state")
+        log_message("brain", "cluster_features", asdict(cluster))
         return cluster
 
     def exec_code(
@@ -168,6 +177,7 @@ class Brain:
         )
         world_state["last_exec"] = asdict(exec_res)
         logger.info("Stored last_exec result in world_state")
+        log_message("brain", "exec_code", asdict(exec_res))
         return exec_res
 
     def get_results(self, key: Optional[str] = None) -> Any:

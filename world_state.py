@@ -2,13 +2,19 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any, Dict, List
+
+from dataclasses import asdict
+from time import time
+
+from agents.brain_outputs import AgentMessage
 
 # Simple in-memory dictionary used by agents to exchange results.
 world_state: Dict[str, Any] = {
     "latest_model": None,
     "latest_prediction": None,
     "clusters": {},
+    "messages": [],
 }
 
 
@@ -25,7 +31,22 @@ def get_value(key: str, default: Any = None) -> Any:
 def reset() -> None:
     """Reset all world_state entries."""
     world_state.clear()
-    world_state.update({"latest_model": None, "latest_prediction": None, "clusters": {}})
+    world_state.update(
+        {
+            "latest_model": None,
+            "latest_prediction": None,
+            "clusters": {},
+            "messages": [],
+        }
+    )
 
 
-__all__ = ["world_state", "set_value", "get_value", "reset"]
+def log_message(agent: str, msg_type: str, content: Any) -> None:
+    """Append a structured message to ``world_state``."""
+    msg = AgentMessage(agent=agent, type=msg_type, content=content, timestamp=time())
+    msgs: List[Dict[str, Any]] = world_state.setdefault("messages", [])
+    msgs.append(asdict(msg))
+    world_state["messages"] = msgs
+
+
+__all__ = ["world_state", "set_value", "get_value", "reset", "log_message"]

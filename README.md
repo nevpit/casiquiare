@@ -182,7 +182,8 @@ page of results.
 The agents share intermediate results through a simple in-memory dictionary
 exposed as ``world_state``. The Brain agent records model summaries under
 ``latest_model`` and cluster information under ``clusters`` while prediction
-requests populate ``latest_prediction``. Other agents can import
+requests populate ``latest_prediction``.  Each action is logged to a
+``messages`` list with ``agent`` and ``type`` fields.  Other agents can import
 ``world_state`` and inspect these keys to combine findings:
 
 ```python
