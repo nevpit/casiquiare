@@ -101,6 +101,26 @@ class Brain:
         log_message("brain", "train_model", asdict(info))
         return info
 
+    def load_model(self, model_path: str) -> ModelResult:
+        """Reload a model from disk and store it in ``world_state``."""
+        model = brain_tools.load_model(model_path)
+        importances = (
+            {str(i): float(v) for i, v in enumerate(model.feature_importances_)}
+            if hasattr(model, "feature_importances_")
+            else {}
+        )
+        info = ModelResult(
+            model_type=type(model).__name__,
+            metrics={},
+            feature_importances=importances,
+            model_path=model_path,
+            model=model,
+        )
+        world_state["latest_model"] = asdict(info)
+        logger.info("Loaded model from %s", model_path)
+        log_message("brain", "load_model", asdict(info))
+        return info
+
     def score_likelihood(self, model: Any, data: Sequence[Sequence[float]]):
         """Score data and record the raw scores."""
         scores = brain_tools.score_likelihood(model, data)
