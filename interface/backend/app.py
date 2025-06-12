@@ -9,6 +9,7 @@ from .utils.config import load_backend_config
 
 from .routes.eyes import bp as eyes_bp
 from .routes.tiles import bp as tiles_bp
+from .routes.brain import bp as brain_bp
 
 
 def create_app(static_path: Path | None = None) -> Flask:
@@ -23,6 +24,7 @@ def create_app(static_path: Path | None = None) -> Flask:
 
     app.register_blueprint(eyes_bp)
     app.register_blueprint(tiles_bp)
+    app.register_blueprint(brain_bp)
 
     @app.route("/", defaults={"path": ""})
     @app.route("/<path:path>")
