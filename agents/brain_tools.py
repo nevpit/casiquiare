@@ -6,10 +6,12 @@ import logging
 from typing import Any, Dict, Iterable, List, Sequence, Optional
 from contextlib import redirect_stdout
 from io import StringIO
+from pathlib import Path
 
 from log_config import setup_logger
 
-logger = setup_logger(__name__)
+# Use a dedicated logger name so Brain operations are easy to trace
+logger = setup_logger("casiquiare.brain")
 
 try:
     from sklearn.ensemble import RandomForestClassifier
@@ -71,6 +73,8 @@ def ingest_training_data(
         except KeyError:
             raise ValueError("training_data path not specified")
 
+    logger.info("Reading training data from %s", csv_path)
+
     df = pd.read_csv(csv_path)
 
     if "red" in df.columns and "nir" in df.columns:
@@ -84,7 +88,15 @@ def ingest_training_data(
     if "label" not in df.columns:
         raise ValueError("Training data must include a 'label' column")
 
-    logger.info("Loaded %d samples with %d features", len(df), len(df.columns) - 1)
+    sites = int(df["label"].sum()) if "label" in df.columns else 0
+    non_sites = int(len(df) - sites)
+    logger.info(
+        "Loaded %d samples (%d sites, %d non-sites) with %d features",
+        len(df),
+        sites,
+        non_sites,
+        len(df.columns) - 1,
+    )
     return df
 
 
@@ -124,6 +136,12 @@ def train_model(
     ):
         raise RuntimeError("scikit-learn, pandas and NumPy are required.")
 
+    logger.info(
+        "Starting model training with %d estimators (random_state=%s)",
+        n_estimators,
+        str(random_state),
+    )
+
     try:
         from sklearn.model_selection import train_test_split
         from sklearn.metrics import accuracy_score, roc_auc_score
@@ -157,9 +175,14 @@ def train_model(
         roc = float("nan")
 
     joblib.dump(clf, model_path)
+    try:
+        size_kb = Path(model_path).stat().st_size / 1024.0
+        logger.info("Saved model to %s (%.1f kB)", model_path, size_kb)
+    except Exception:
+        logger.info("Saved model to %s", model_path)
 
     importances = {name: float(val) for name, val in zip(feature_names, clf.feature_importances_)}
-    logger.info("Model accuracy = %.3f", acc)
+    logger.info("Validation accuracy = %.3f, ROC AUC = %.3f", acc, roc)
     logger.info("Important features = %s", importances)
 
     summary = {
@@ -169,6 +192,7 @@ def train_model(
         "feature_importances": importances,
         "model_path": model_path,
     }
+    logger.info("Training completed")
     return summary
 
 
@@ -177,6 +201,7 @@ def score_likelihood(model: Any, data: Sequence[Sequence[float]]) -> List[float]
     if np is None:
         raise RuntimeError("NumPy is required.")
     X = np.array(list(data))
+    logger.debug("Scoring %d samples", X.shape[0])
     if hasattr(model, "predict_proba"):
         scores = model.predict_proba(X)[:, 1]
     else:
@@ -256,6 +281,9 @@ def predict_sites(
     if np is None:
         raise RuntimeError("NumPy is required.")
 
+    input_type = "region" if not isinstance(input_data, Iterable) or isinstance(input_data, (str, bytes)) else "feature vectors"
+    logger.info("Predicting sites for %s", input_type)
+
     # Pre-scored feature vectors
     if isinstance(input_data, Iterable) and input_data and not isinstance(input_data, (str, bytes)):
         first = next(iter(input_data))
@@ -292,6 +320,7 @@ def predict_sites(
     logger.info(
         "Scoring region %s – produced heatmap with shape %s", bbox, heatmap.shape
     )
+    logger.debug("Top coordinates: %s", top_coords)
 
     result = {"scores_map": heatmap, "summary": summary}
     if hasattr(model, "feature_importances_"):
@@ -318,6 +347,8 @@ def validate_features(features: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]
 
     if np is None:
         raise RuntimeError("NumPy is required.")
+
+    logger.info("Validating %d features", len(features))
 
     # Reference statistics for typical archaeological mounds.  These values are
     # intentionally broad and would normally be computed from a training
@@ -412,6 +443,8 @@ def cluster_features(
     if DBSCAN is None or np is None:
         raise RuntimeError("scikit-learn and NumPy are required.")
 
+    logger.info("Clustering %d features", len(features))
+
     def _centroid(obj: Any) -> tuple[float, float]:
         if isinstance(obj, (list, tuple)) and len(obj) == 2:
             return float(obj[0]), float(obj[1])
@@ -494,6 +527,7 @@ def exec_code(code: str, local_vars: Optional[Dict[str, Any]] = None) -> Dict[st
     """Execute Python code in a restricted sandbox."""
 
     snippet = code if len(code) <= 200 else code[:200] + "..."
+    logger.info("Executing code snippet: %s", snippet)
     safe_builtins = {
         "print": print,
         "range": range,
@@ -537,7 +571,9 @@ def exec_code(code: str, local_vars: Optional[Dict[str, Any]] = None) -> Dict[st
                 fig.savefig(path)
                 figures.append(path)
             plt.close("all")
-        logger.info("Executed code snippet: %s", snippet)
+        logger.info("Executed code snippet successfully: %s", snippet)
+        if result is not None:
+            logger.debug("Execution result: %s", result)
     except Exception as exc:  # pragma: no cover - runtime errors
         logger.exception("Error executing code snippet: %s", snippet)
         return {

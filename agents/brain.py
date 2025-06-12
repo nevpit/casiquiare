@@ -6,6 +6,8 @@ import os
 from dataclasses import dataclass, field, asdict
 from typing import Any, Dict, Optional, Sequence
 
+from log_config import setup_logger
+
 from . import brain_tools
 from .brain_outputs import (
     ModelResult,
@@ -19,6 +21,9 @@ try:
     import openai
 except Exception:  # pragma: no cover - library may be missing
     openai = None
+
+
+logger = setup_logger("casiquiare.brain")
 
 
 @dataclass
@@ -87,12 +92,15 @@ class Brain:
             model=result["model"],
         )
         world_state["latest_model"] = asdict(info)
+        logger.info("Stored latest_model in world_state")
+        logger.debug("Model metrics: %s", info.metrics)
         return info
 
     def score_likelihood(self, model: Any, data: Sequence[Sequence[float]]):
         """Score data and record the raw scores."""
         scores = brain_tools.score_likelihood(model, data)
         world_state["latest_prediction"] = scores
+        logger.info("Stored latest_prediction scores in world_state")
         return scores
 
     def predict_sites(
@@ -116,12 +124,14 @@ class Brain:
             feature_importances=result.get("feature_importances"),
         )
         world_state["latest_prediction"] = asdict(pred)
+        logger.info("Stored latest_prediction map in world_state")
         return pred
 
     def validate_features(self, features: Sequence[Dict[str, Any]]):
         """Validate features and store the results."""
         res = brain_tools.validate_features(features)
         world_state["validation"] = res
+        logger.info("Stored validation results in world_state")
         return res
 
     def cluster_features(
@@ -141,6 +151,7 @@ class Brain:
         else:
             clusters["latest"] = asdict(cluster)
         world_state["clusters"] = clusters
+        logger.info("Stored clusters summary in world_state")
         return cluster
 
     def exec_code(
@@ -156,12 +167,15 @@ class Brain:
             error=result.get("error"),
         )
         world_state["last_exec"] = asdict(exec_res)
+        logger.info("Stored last_exec result in world_state")
         return exec_res
 
     def get_results(self, key: Optional[str] = None) -> Any:
         """Return stored results from ``world_state``."""
         if key is None:
+            logger.info("Retrieving full world_state")
             return world_state
+        logger.info("Retrieving %s from world_state", key)
         return world_state.get(key)
 
 
