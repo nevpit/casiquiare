@@ -38,12 +38,19 @@ def test_logs_route(tmp_path):
         assert resp.status_code == 200
         assert resp.data.decode() == "line2\nline3\n"
 
+        resp = client.get("/brain/logs?n=1")
+        assert resp.status_code == 200
+        assert resp.data.decode() == "line3\n"
+
 
 def test_logs_route_missing(tmp_path):
     app = create_app()
     app.config["LOG_FILE"] = tmp_path / "missing.log"
     with app.test_client() as client:
         resp = client.get("/eyes/logs")
+        assert resp.status_code == 404
+
+        resp = client.get("/brain/logs")
         assert resp.status_code == 404
 
 
