@@ -15,10 +15,9 @@ logger = setup_logger("casiquiare.brain")
 
 try:
     from sklearn.ensemble import RandomForestClassifier
-    from sklearn.cluster import KMeans, DBSCAN
+    from sklearn.cluster import DBSCAN
 except Exception:  # pragma: no cover - library may be missing
     RandomForestClassifier = None  # type: ignore
-    KMeans = None  # type: ignore
     DBSCAN = None  # type: ignore
 
 try:
