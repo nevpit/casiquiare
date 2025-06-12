@@ -191,3 +191,16 @@ from world_state import world_state
 model_info = world_state.get("latest_model")
 clusters = world_state.get("clusters", {})
 ```
+
+## Configurable Brain models
+
+The ``Brain`` agent trains a classifier to estimate site likelihoods. By
+default a ``RandomForestClassifier`` is used, but ``train_model`` now accepts a
+``model_type`` option so you can switch to ``xgboost`` if the ``xgboost``
+package is installed:
+
+```python
+from agents.brain import brain_tools
+
+info = brain_tools.train_model(df, model_type="xgboost", n_estimators=200)
+```

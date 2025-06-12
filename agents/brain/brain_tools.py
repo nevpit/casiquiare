@@ -22,6 +22,11 @@ except Exception:  # pragma: no cover - library may be missing
     DBSCAN = None  # type: ignore
 
 try:
+    from xgboost import XGBClassifier
+except Exception:  # pragma: no cover - library may be missing
+    XGBClassifier = None  # type: ignore
+
+try:
     import numpy as np
 except Exception:  # pragma: no cover - library may be missing
     np = None  # type: ignore
@@ -106,8 +111,9 @@ def train_model(
     n_estimators: int = 100,
     random_state: Optional[int] = None,
     model_path: str = "brain_model.joblib",
+    model_type: str = "random_forest",
 ) -> Dict[str, Any]:
-    """Train a random-forest classifier on feature data.
+    """Train a machine-learning classifier on feature data.
 
     Parameters
     ----------
@@ -116,11 +122,13 @@ def train_model(
         column. When ``None`` the dataset is loaded using
         :func:`ingest_training_data`.
     n_estimators:
-        Number of trees in the forest.
+        Number of trees or boosting rounds for the model.
     random_state:
         Optional random seed for reproducibility.
     model_path:
         File path where the trained model will be saved using ``joblib``.
+    model_type:
+        Algorithm to train (``"random_forest"`` or ``"xgboost"``).
 
     Returns
     -------
@@ -169,9 +177,23 @@ def train_model(
             X, y, test_size=0.2, random_state=random_state, stratify=None
         )
 
-    logger.info("Loaded %d samples, training RandomForest", len(y_train))
-    clf = RandomForestClassifier(n_estimators=n_estimators, random_state=random_state)
-    clf.fit(X_train, y_train)
+    if model_type == "xgboost":
+        if XGBClassifier is None:
+            raise RuntimeError("xgboost is required for model_type='xgboost'")
+        logger.info("Loaded %d samples, training XGBoost", len(y_train))
+        clf = XGBClassifier(
+            n_estimators=n_estimators,
+            random_state=random_state,
+            use_label_encoder=False,
+            eval_metric="logloss",
+        )
+        clf.fit(X_train, y_train)
+    else:
+        if RandomForestClassifier is None:
+            raise RuntimeError("scikit-learn is required for RandomForest")
+        logger.info("Loaded %d samples, training RandomForest", len(y_train))
+        clf = RandomForestClassifier(n_estimators=n_estimators, random_state=random_state)
+        clf.fit(X_train, y_train)
 
     preds = clf.predict(X_val)
     acc = float(accuracy_score(y_val, preds))
@@ -193,7 +215,7 @@ def train_model(
 
     summary = {
         "model": clf,
-        "model_type": "RandomForestClassifier",
+        "model_type": type(clf).__name__,
         "metrics": {"accuracy": acc, "roc_auc": roc},
         "feature_importances": importances,
         "model_path": model_path,
