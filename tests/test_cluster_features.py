@@ -1,5 +1,5 @@
 import pytest
-from agents import brain_tools
+from agents.brain import brain_tools
 
 
 def test_cluster_features_runtime():

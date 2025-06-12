@@ -8,7 +8,7 @@ tools:
     function:
       name: scan_area
       description: Scan a LiDAR tile and detect geometric features.
-      entrypoint: agents.eyes_tools:scan_area
+      entrypoint: agents.eyes.tools:scan_area
       parameters:
         type: object
         properties:
@@ -33,7 +33,7 @@ tools:
     function:
       name: train_model
       description: Train a random-forest classifier on feature data.
-      entrypoint: agents.brain_tools:train_model
+      entrypoint: agents.brain.brain_tools:train_model
       parameters:
         type: object
         properties:
@@ -60,7 +60,7 @@ tools:
     function:
       name: score_likelihood
       description: Score feature vectors using a trained model.
-      entrypoint: agents.brain_tools:score_likelihood
+      entrypoint: agents.brain.brain_tools:score_likelihood
       parameters:
         type: object
         properties:
@@ -81,7 +81,7 @@ tools:
     function:
       name: validate_features
       description: Filter features, keeping only those with valid geometry.
-      entrypoint: agents.brain_tools:validate_features
+      entrypoint: agents.brain.brain_tools:validate_features
       parameters:
         type: object
         properties:
@@ -96,7 +96,7 @@ tools:
     function:
       name: cluster_features
       description: Group geographic features into settlement clusters using DBSCAN.
-      entrypoint: agents.brain_tools:cluster_features
+      entrypoint: agents.brain.brain_tools:cluster_features
       parameters:
         type: object
         properties:
@@ -125,7 +125,7 @@ tools:
     function:
       name: exec_code
       description: Execute arbitrary Python code and return the local variables.
-      entrypoint: agents.brain_tools:exec_code
+      entrypoint: agents.brain.brain_tools:exec_code
       parameters:
         type: object
         properties:

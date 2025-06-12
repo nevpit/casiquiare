@@ -7,7 +7,7 @@ from typing import Any, Dict, List
 from dataclasses import asdict
 from time import time
 
-from agents.brain_outputs import AgentMessage
+from agents.brain.brain_outputs import AgentMessage
 
 # Simple in-memory dictionary used by agents to exchange results.
 world_state: Dict[str, Any] = {
