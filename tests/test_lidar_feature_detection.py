@@ -1,6 +1,6 @@
 import pytest
 
-import agents.eyes_tools as eyes_tools
+import eyes.tools as eyes_tools
 
 
 def test_lidar_feature_detection_runtime(tmp_path):

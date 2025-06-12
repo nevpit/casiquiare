@@ -3,7 +3,7 @@ Researching novel methods to help archeological efforts in the Amazon
 
 ## Eyes agent utilities
 
-Tools for the Eyes agent live in `agents/eyes_tools.py`. These helpers handle
+Tools for the Eyes agent live in `eyes/tools.py`. These helpers handle
 LiDAR processing, raster inspection, coordinate transforms, and shape
 detection. They are callable directly or via `Eyes.tools` and wrapped as
 methods on the `Eyes` agent. The shape detection logic now resides in the
@@ -32,9 +32,9 @@ Utility modules under `processing` extend the toolkit with low-level I/O helpers
 
 The `write_geotiff` function in `processing/lidar.py` saves an array to a
 GeoTIFF file using a provided rasterio profile so the CRS and transform are
-preserved. LiDAR file readers are provided in `io_helpers/lidar.py`.
+preserved. LiDAR file readers are provided in `io_utils/lidar.py`.
 
-`lidar_tile_dtm`, `lidar_feature_detection` and `scan_area` can optionally
+`lidar_tile_dtm`, `lidar_feature_detection` and `scan_lidar_area` can optionally
 write their intermediate rasters to disk. Pass ``out_dir`` to specify an output
 folder and set ``return_paths=True`` to receive file paths instead of NumPy
 arrays.
@@ -60,11 +60,11 @@ functionality of the processing utilities.
 
 ## Programmatic usage examples
 
-Each helper in `agents/eyes_tools.py` can be imported and called directly.  Below
+Each helper in `eyes/tools.py` can be imported and called directly.  Below
 is a minimal example demonstrating all available tools:
 
 ```python
-from agents import eyes_tools as eyes
+from eyes import tools as eyes
 
 # Load point cloud arrays from a LiDAR tile
 arrays = eyes.analyze_lidar("tile.laz")
@@ -94,7 +94,7 @@ shapes = eyes.detect_shapes(dtm_info["hillshade"], dtm_info["profile"])
 eyes.save_snippets(dtm_info["hillshade"], detections["features"], "snippets")
 
 # Convenience wrapper for the entire pipeline
-results = eyes.scan_area("tile.laz")
+results = eyes.scan_lidar_area("tile.laz")
 ```
 
 ## YAML orchestrator snippet
@@ -165,7 +165,7 @@ steps:
       out_dir: snippets
 
   - name: quick-scan
-    tool: scan_area
+    tool: scan_lidar_area
     args:
       path: tile.laz
 ```
