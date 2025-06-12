@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import logging
 from typing import Any, Dict, Iterable, List, Sequence, Optional
+from contextlib import redirect_stdout
+from io import StringIO
 
 from log_config import setup_logger
 
@@ -36,6 +38,11 @@ try:
     from processing.sat import compute_ndvi
 except Exception:  # pragma: no cover - library may be missing
     compute_ndvi = None  # type: ignore
+
+try:
+    import matplotlib.pyplot as plt
+except Exception:  # pragma: no cover - library may be missing
+    plt = None  # type: ignore
 
 
 def ingest_training_data(
@@ -484,11 +491,68 @@ def cluster_features(
 
 
 def exec_code(code: str, local_vars: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-    """Execute Python code dynamically and return local variables."""
+    """Execute Python code in a restricted sandbox."""
+
+    snippet = code if len(code) <= 200 else code[:200] + "..."
+    safe_builtins = {
+        "print": print,
+        "range": range,
+        "len": len,
+        "min": min,
+        "max": max,
+        "sum": sum,
+        "enumerate": enumerate,
+        "list": list,
+        "dict": dict,
+        "set": set,
+        "float": float,
+        "int": int,
+        "str": str,
+    }
+
+    safe_globals: Dict[str, Any] = {"__builtins__": safe_builtins}
+    if np is not None:
+        safe_globals["np"] = np
+    if pd is not None:
+        safe_globals["pd"] = pd
+    if plt is not None:
+        safe_globals["plt"] = plt
+
+    # Expose Brain tools except exec_code itself
+    safe_globals.update({k: v for k, v in TOOLS.items() if k != "exec_code"})
+
     env: Dict[str, Any] = dict(local_vars or {})
-    exec(code, {}, env)
-    logger.info("Executed code block with %d vars", len(env))
-    return env
+
+    stdout_buf = StringIO()
+    result: Any = None
+    figures: List[str] = []
+    try:
+        with redirect_stdout(stdout_buf):
+            exec(code, safe_globals, env)
+        result = env.get("result")
+        if plt is not None and plt.get_fignums():
+            for num in plt.get_fignums():
+                fig = plt.figure(num)
+                path = f"figure_{num}.png"
+                fig.savefig(path)
+                figures.append(path)
+            plt.close("all")
+        logger.info("Executed code snippet: %s", snippet)
+    except Exception as exc:  # pragma: no cover - runtime errors
+        logger.exception("Error executing code snippet: %s", snippet)
+        return {
+            "stdout": stdout_buf.getvalue(),
+            "error": str(exc),
+            "result": None,
+            "figures": figures,
+        }
+
+    return {
+        "stdout": stdout_buf.getvalue(),
+        "result": result,
+        "figures": figures,
+        "locals": env,
+    }
 
 
 TOOLS: Dict[str, Any] = {
