@@ -1,6 +1,6 @@
 import pytest
 
-import eyes.tools as eyes_tools
+import agents.eyes.tools as eyes_tools
 
 
 def test_lidar_tile_dtm_runtime(tmp_path):

@@ -1,7 +1,7 @@
 import pytest
 
 from agents.brain import Brain
-from agents import brain_tools
+from agents.brain import brain_tools
 from world_state import world_state, reset
 
 

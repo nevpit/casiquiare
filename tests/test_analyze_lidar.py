@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-import eyes.tools as eyes_tools
+import agents.eyes.tools as eyes_tools
 
 
 def test_analyze_lidar_runtime(tmp_path):

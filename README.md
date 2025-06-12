@@ -3,7 +3,7 @@ Researching novel methods to help archeological efforts in the Amazon
 
 ## Eyes agent utilities
 
-Tools for the Eyes agent live in `eyes/tools.py`. These helpers handle
+Tools for the Eyes agent live in `agents/eyes/tools.py`. These helpers handle
 LiDAR processing, raster inspection, coordinate transforms, and shape
 detection. They are callable directly or via `Eyes.tools` and wrapped as
 methods on the `Eyes` agent. The shape detection logic now resides in the
@@ -60,11 +60,11 @@ functionality of the processing utilities.
 
 ## Programmatic usage examples
 
-Each helper in `eyes/tools.py` can be imported and called directly.  Below
+Each helper in `agents/eyes/tools.py` can be imported and called directly.  Below
 is a minimal example demonstrating all available tools:
 
 ```python
-from eyes import tools as eyes
+from agents.eyes import tools as eyes
 
 # Load point cloud arrays from a LiDAR tile
 arrays = eyes.analyze_lidar("tile.laz")

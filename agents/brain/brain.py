@@ -70,7 +70,7 @@ class Brain:
     def ingest_training_data(
         self, csv_path: Optional[str] = None, mapping_file: Optional[str] = None
     ) -> "pd.DataFrame":
-        """Delegate to :func:`agents.brain_tools.ingest_training_data`."""
+        """Delegate to :func:`agents.brain.brain_tools.ingest_training_data`."""
         return brain_tools.ingest_training_data(csv_path, mapping_file)
 
     def train_model(
@@ -166,7 +166,7 @@ class Brain:
     def exec_code(
         self, code: str, local_vars: Optional[Dict[str, Any]] = None
     ) -> ExecutionResult:
-        """Execute code via :func:`agents.brain_tools.exec_code`."""
+        """Execute code via :func:`agents.brain.brain_tools.exec_code`."""
         result = brain_tools.exec_code(code, local_vars)
         exec_res = ExecutionResult(
             stdout=result.get("stdout", ""),

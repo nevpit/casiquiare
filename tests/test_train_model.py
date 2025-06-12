@@ -1,6 +1,6 @@
 import pytest
 
-from agents import brain_tools
+from agents.brain import brain_tools
 
 
 def test_train_model_runtime(tmp_path):
