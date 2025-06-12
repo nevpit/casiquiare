@@ -81,20 +81,87 @@ def ingest_training_data(
 
 
 def train_model(
-    data: Sequence[Sequence[float]],
-    labels: Sequence[int],
+    data: Optional["pd.DataFrame"] = None,
+    *,
     n_estimators: int = 100,
     random_state: Optional[int] = None,
-) -> "RandomForestClassifier":
-    """Train a simple random-forest classifier."""
-    if RandomForestClassifier is None or np is None:
-        raise RuntimeError("scikit-learn and NumPy are required.")
-    X = np.array(list(data))
-    y = np.array(list(labels))
+    model_path: str = "brain_model.joblib",
+) -> Dict[str, Any]:
+    """Train a random-forest classifier on feature data.
+
+    Parameters
+    ----------
+    data:
+        Optional pandas DataFrame containing feature columns and a ``label``
+        column. When ``None`` the dataset is loaded using
+        :func:`ingest_training_data`.
+    n_estimators:
+        Number of trees in the forest.
+    random_state:
+        Optional random seed for reproducibility.
+    model_path:
+        File path where the trained model will be saved using ``joblib``.
+
+    Returns
+    -------
+    Dict[str, Any]
+        Dictionary containing the trained model object, metrics and feature
+        importances.
+    """
+
+    if (
+        RandomForestClassifier is None
+        or np is None
+        or pd is None
+    ):
+        raise RuntimeError("scikit-learn, pandas and NumPy are required.")
+
+    try:
+        from sklearn.model_selection import train_test_split
+        from sklearn.metrics import accuracy_score, roc_auc_score
+        import joblib
+    except Exception as exc:  # pragma: no cover - library may be missing
+        raise RuntimeError("scikit-learn is required for training") from exc
+
+    if data is None:
+        data = ingest_training_data()
+
+    if "label" not in data.columns:
+        raise ValueError("Input data must include a 'label' column")
+
+    feature_names = [c for c in data.columns if c != "label"]
+    X = data[feature_names].to_numpy()
+    y = data["label"].to_numpy()
+
+    X_train, X_val, y_train, y_val = train_test_split(
+        X, y, test_size=0.2, random_state=random_state, stratify=y
+    )
+
+    logger.info("Loaded %d samples, training RandomForest", len(y_train))
     clf = RandomForestClassifier(n_estimators=n_estimators, random_state=random_state)
-    clf.fit(X, y)
-    logger.info("Trained RandomForest with %d samples", len(y))
-    return clf
+    clf.fit(X_train, y_train)
+
+    preds = clf.predict(X_val)
+    acc = float(accuracy_score(y_val, preds))
+    try:
+        roc = float(roc_auc_score(y_val, clf.predict_proba(X_val)[:, 1]))
+    except Exception:  # pragma: no cover - may fail with single class
+        roc = float("nan")
+
+    joblib.dump(clf, model_path)
+
+    importances = {name: float(val) for name, val in zip(feature_names, clf.feature_importances_)}
+    logger.info("Model accuracy = %.3f", acc)
+    logger.info("Important features = %s", importances)
+
+    summary = {
+        "model": clf,
+        "model_type": "RandomForestClassifier",
+        "metrics": {"accuracy": acc, "roc_auc": roc},
+        "feature_importances": importances,
+        "model_path": model_path,
+    }
+    return summary
 
 
 def score_likelihood(model: Any, data: Sequence[Sequence[float]]) -> List[float]:
