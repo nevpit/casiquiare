@@ -527,11 +527,11 @@ def cluster_features(
     return {"labels": labels.tolist(), "summary": summary}
 
 
-def exec_code(code: str, local_vars: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-    """Execute Python code in a restricted sandbox."""
+import multiprocessing
 
-    snippet = code if len(code) <= 200 else code[:200] + "..."
-    logger.info("Executing code snippet: %s", snippet)
+
+def _run_snippet(code: str, local_vars: Optional[Dict[str, Any]], queue: "multiprocessing.Queue") -> None:
+    """Helper executed in a subprocess to run code snippets."""
     safe_builtins = {
         "print": print,
         "range": range,
@@ -575,24 +575,49 @@ def exec_code(code: str, local_vars: Optional[Dict[str, Any]] = None) -> Dict[st
                 fig.savefig(path)
                 figures.append(path)
             plt.close("all")
-        logger.info("Executed code snippet successfully: %s", snippet)
-        if result is not None:
-            logger.debug("Execution result: %s", result)
+        queue.put(
+            {
+                "stdout": stdout_buf.getvalue(),
+                "result": result,
+                "figures": figures,
+                "locals": env,
+            }
+        )
     except Exception as exc:  # pragma: no cover - runtime errors
-        logger.exception("Error executing code snippet: %s", snippet)
-        return {
-            "stdout": stdout_buf.getvalue(),
-            "error": str(exc),
-            "result": None,
-            "figures": figures,
-        }
+        queue.put(
+            {
+                "stdout": stdout_buf.getvalue(),
+                "error": str(exc),
+                "result": None,
+                "figures": figures,
+            }
+        )
 
-    return {
-        "stdout": stdout_buf.getvalue(),
-        "result": result,
-        "figures": figures,
-        "locals": env,
-    }
+
+def exec_code(
+    code: str,
+    local_vars: Optional[Dict[str, Any]] = None,
+    *,
+    timeout: int = 5,
+) -> Dict[str, Any]:
+    """Execute Python code in a restricted sandbox with a time limit."""
+
+    snippet = code if len(code) <= 200 else code[:200] + "..."
+    logger.info("Executing code snippet: %s", snippet)
+    queue: multiprocessing.Queue = multiprocessing.Queue()
+    proc = multiprocessing.Process(target=_run_snippet, args=(code, local_vars, queue))
+    proc.start()
+    proc.join(timeout)
+    if proc.is_alive():
+        logger.error("Execution timed out after %d seconds", timeout)
+        proc.terminate()
+        proc.join()
+        return {"stdout": "", "result": None, "error": "timeout", "figures": []}
+
+    if not queue.empty():
+        return queue.get()
+
+    return {"stdout": "", "result": None, "error": "no result", "figures": []}
 
 
 TOOLS: Dict[str, Any] = {
