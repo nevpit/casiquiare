@@ -1,6 +1,5 @@
 """Utility functions for the Brain agent."""
 
-from __future__ import annotations
 
 import logging
 from typing import Any, Dict, Iterable, List, Sequence, Optional
@@ -59,6 +58,13 @@ try:
     import matplotlib.pyplot as plt
 except Exception:  # pragma: no cover - library may be missing
     plt = None  # type: ignore
+
+try:
+    from detection.merge import merge_detections
+    from detection.ml_filter import _feature_vector
+except Exception:  # pragma: no cover - library may be missing
+    merge_detections = None  # type: ignore
+    _feature_vector = None  # type: ignore
 
 
 def ingest_training_data(
@@ -317,7 +323,6 @@ def update_model(
 
 
 def score_likelihood(model: Any, data: Sequence[Sequence[float]]) -> List[float]:
-    """Score feature vectors using a trained model."""
     if np is None:
         raise RuntimeError("NumPy is required.")
     X = np.array(list(data))
@@ -647,6 +652,47 @@ def cluster_features(
     return {"labels": labels.tolist(), "summary": summary}
 
 
+def fuse_score_detections(
+    model: Any,
+    lidar: Sequence[Dict[str, Any]],
+    satellite: Sequence[Dict[str, Any]],
+    *,
+    threshold: float = 25.0,
+) -> Dict[str, Any]:
+    """Merge Eyes detections from multiple sensors and score them.
+
+    Parameters
+    ----------
+    model:
+        Trained model supporting ``predict`` or ``predict_proba``.
+    lidar:
+        Detections generated from LiDAR tiles.
+    satellite:
+        Detections from satellite imagery.
+    threshold:
+        Centroid distance for merging LiDAR and satellite detections.
+
+    Returns
+    -------
+    dict
+        Mapping with ``merged`` detections and their likelihood ``scores``.
+    """
+
+    if np is None or merge_detections is None or _feature_vector is None:
+        raise RuntimeError("Detection utilities and NumPy are required.")
+
+    logger.info(
+        "Fusing %d LiDAR and %d satellite detections", len(lidar), len(satellite)
+    )
+    merged = merge_detections(list(lidar), list(satellite), threshold=threshold)
+    logger.debug("Merged into %d detections", len(merged))
+
+    vectors = [_feature_vector(d) for d in merged]
+    scores = score_likelihood(model, vectors)
+    logger.info("Scored %d merged detections", len(scores))
+    return {"merged": merged, "scores": scores}
+
+
 import multiprocessing
 
 
@@ -747,6 +793,7 @@ TOOLS: Dict[str, Any] = {
     "update_model": update_model,
     "score_likelihood": score_likelihood,
     "predict_sites": predict_sites,
+    "fuse_score_detections": fuse_score_detections,
     "validate_features": validate_features,
     "cluster_features": cluster_features,
     "exec_code": exec_code,
@@ -759,6 +806,7 @@ __all__ = [
     "update_model",
     "score_likelihood",
     "predict_sites",
+    "fuse_score_detections",
     "validate_features",
     "cluster_features",
     "exec_code",

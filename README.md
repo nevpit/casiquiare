@@ -27,6 +27,8 @@ binary edge image using the Hough transform.
 
 `merge_detections` combines LiDAR and satellite candidates when their
 centroids fall within 25 m, helping reduce duplicates across sensors.
+`fuse_score_detections` builds on this by merging detections and immediately
+scoring them with a trained model.
 
 Utility modules under `processing` extend the toolkit with low-level I/O helpers.
 
