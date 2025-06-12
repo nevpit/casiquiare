@@ -3,10 +3,17 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, field
-from typing import Any, Dict
+from dataclasses import dataclass, field, asdict
+from typing import Any, Dict, Optional, Sequence
 
 from . import brain_tools
+from .brain_outputs import (
+    ModelResult,
+    PredictionResult,
+    ClusterResult,
+    ExecutionResult,
+)
+from world_state import world_state
 
 try:
     import openai
@@ -47,6 +54,115 @@ class Brain:
         ]
         response = openai.ChatCompletion.create(model=self.model, messages=messages)
         return response.choices[0].message.content.strip()
+
+    # ------------------------------------------------------------------
+    # Wrappers around tool functions that also update the world_state
+
+    def ingest_training_data(
+        self, csv_path: Optional[str] = None, mapping_file: Optional[str] = None
+    ) -> "pd.DataFrame":
+        """Delegate to :func:`agents.brain_tools.ingest_training_data`."""
+        return brain_tools.ingest_training_data(csv_path, mapping_file)
+
+    def train_model(
+        self,
+        data: Optional["pd.DataFrame"] = None,
+        *,
+        n_estimators: int = 100,
+        random_state: Optional[int] = None,
+        model_path: str = "brain_model.joblib",
+    ) -> ModelResult:
+        """Train a model and store the summary in ``world_state``."""
+        result = brain_tools.train_model(
+            data,
+            n_estimators=n_estimators,
+            random_state=random_state,
+            model_path=model_path,
+        )
+        info = ModelResult(
+            model_type=result["model_type"],
+            metrics=result["metrics"],
+            feature_importances=result["feature_importances"],
+            model_path=result["model_path"],
+            model=result["model"],
+        )
+        world_state["latest_model"] = asdict(info)
+        return info
+
+    def score_likelihood(self, model: Any, data: Sequence[Sequence[float]]):
+        """Score data and record the raw scores."""
+        scores = brain_tools.score_likelihood(model, data)
+        world_state["latest_prediction"] = scores
+        return scores
+
+    def predict_sites(
+        self,
+        model: Any,
+        input_data: Any,
+        *,
+        grid_size: float = 0.01,
+        top_n: int = 5,
+    ) -> PredictionResult:
+        """Predict site likelihoods and update ``world_state``."""
+        result = brain_tools.predict_sites(
+            model,
+            input_data,
+            grid_size=grid_size,
+            top_n=top_n,
+        )
+        pred = PredictionResult(
+            scores_map=result["scores_map"],
+            summary=result["summary"],
+            feature_importances=result.get("feature_importances"),
+        )
+        world_state["latest_prediction"] = asdict(pred)
+        return pred
+
+    def validate_features(self, features: Sequence[Dict[str, Any]]):
+        """Validate features and store the results."""
+        res = brain_tools.validate_features(features)
+        world_state["validation"] = res
+        return res
+
+    def cluster_features(
+        self,
+        features: Sequence[Any],
+        *,
+        eps: float = 100.0,
+        min_samples: int = 2,
+        area_id: Optional[str] = None,
+    ) -> ClusterResult:
+        """Cluster geographic features and record the cluster summary."""
+        result = brain_tools.cluster_features(features, eps=eps, min_samples=min_samples)
+        clusters = world_state.setdefault("clusters", {})
+        cluster = ClusterResult(labels=result["labels"], summary=result["summary"])
+        if area_id is not None:
+            clusters[area_id] = asdict(cluster)
+        else:
+            clusters["latest"] = asdict(cluster)
+        world_state["clusters"] = clusters
+        return cluster
+
+    def exec_code(
+        self, code: str, local_vars: Optional[Dict[str, Any]] = None
+    ) -> ExecutionResult:
+        """Execute code via :func:`agents.brain_tools.exec_code`."""
+        result = brain_tools.exec_code(code, local_vars)
+        exec_res = ExecutionResult(
+            stdout=result.get("stdout", ""),
+            result=result.get("result"),
+            figures=result.get("figures", []),
+            locals=result.get("locals"),
+            error=result.get("error"),
+        )
+        world_state["last_exec"] = asdict(exec_res)
+        return exec_res
+
+    def get_results(self, key: Optional[str] = None) -> Any:
+        """Return stored results from ``world_state``."""
+        if key is None:
+            return world_state
+        return world_state.get(key)
 
 
 TOOLS: Dict[str, Any] = brain_tools.TOOLS

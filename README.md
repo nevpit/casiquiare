@@ -176,3 +176,17 @@ The React dashboard displays detections on an interactive map. To keep the map
 snappy, GeoJSON layers are paginated when more than 2 000 features are loaded.
 Use the controls in the bottom-left corner of the map to step through each
 page of results.
+
+## Shared world state
+
+The agents share intermediate results through a simple in-memory dictionary
+exposed as ``world_state``. The Brain agent records model summaries under
+``latest_model`` and cluster information under ``clusters`` while prediction
+requests populate ``latest_prediction``. Other agents can import
+``world_state`` and inspect these keys to combine findings:
+
+```python
+from world_state import world_state
+model_info = world_state.get("latest_model")
+clusters = world_state.get("clusters", {})
+```
