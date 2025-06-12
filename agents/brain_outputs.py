@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
+from time import time
 
 
 @dataclass
@@ -46,9 +47,20 @@ class ExecutionResult:
     error: Optional[str] = None
 
 
+@dataclass
+class AgentMessage:
+    """Structured message exchanged between agents."""
+
+    agent: str
+    type: str
+    content: Dict[str, Any]
+    timestamp: float = field(default_factory=time)
+
+
 __all__ = [
     "ModelResult",
     "PredictionResult",
     "ClusterResult",
     "ExecutionResult",
+    "AgentMessage",
 ]
