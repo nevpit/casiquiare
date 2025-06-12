@@ -11,10 +11,11 @@ logger = setup_logger(__name__)
 
 try:
     from sklearn.ensemble import RandomForestClassifier
-    from sklearn.cluster import KMeans
+    from sklearn.cluster import KMeans, DBSCAN
 except Exception:  # pragma: no cover - library may be missing
     RandomForestClassifier = None  # type: ignore
     KMeans = None  # type: ignore
+    DBSCAN = None  # type: ignore
 
 try:
     import numpy as np
@@ -376,18 +377,110 @@ def validate_features(features: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]
 
 
 def cluster_features(
-    features: Sequence[Sequence[float]],
-    n_clusters: int = 2,
-    random_state: Optional[int] = None,
-) -> List[int]:
-    """Cluster feature vectors using k-means."""
-    if KMeans is None or np is None:
+    features: Sequence[Any],
+    *,
+    eps: float = 100.0,
+    min_samples: int = 2,
+) -> Dict[str, Any]:
+    """Cluster geographic features using DBSCAN.
+
+    Parameters
+    ----------
+    features:
+        Sequence of feature dictionaries, dataclass instances or ``(x, y)``
+        coordinate pairs.
+    eps:
+        Maximum distance in the same units as the coordinates for two points to
+        be considered neighbors.
+    min_samples:
+        Minimum number of samples required to form a cluster.
+
+    Returns
+    -------
+    dict
+        Mapping containing ``labels`` for each feature and ``summary`` with
+        cluster statistics.
+    """
+
+    if DBSCAN is None or np is None:
         raise RuntimeError("scikit-learn and NumPy are required.")
-    X = np.array(list(features))
-    km = KMeans(n_clusters=n_clusters, random_state=random_state)
-    labels = km.fit_predict(X)
-    logger.info("Clustered %d samples into %d groups", X.shape[0], n_clusters)
-    return labels.tolist()
+
+    def _centroid(obj: Any) -> tuple[float, float]:
+        if isinstance(obj, (list, tuple)) and len(obj) == 2:
+            return float(obj[0]), float(obj[1])
+        if hasattr(obj, "__dict__") and not isinstance(obj, dict):
+            obj = obj.__dict__
+        if isinstance(obj, dict):
+            if "bbox" in obj and isinstance(obj["bbox"], (list, tuple)) and len(obj["bbox"]) == 4:
+                x, y, w, h = obj["bbox"]
+                return float(x + w / 2.0), float(y + h / 2.0)
+            geom = obj.get("geometry", {})
+            bbox = geom.get("bbox")
+            if bbox and len(bbox) == 4:
+                x, y, w, h = bbox
+                return float(x + w / 2.0), float(y + h / 2.0)
+            coords = geom.get("coordinates")
+            if coords is not None:
+                arr = np.array(coords, dtype=float).reshape(-1, 2)
+                return float(arr[:, 0].mean()), float(arr[:, 1].mean())
+            if "x" in obj and "y" in obj:
+                return float(obj["x"]), float(obj["y"])
+        raise ValueError("Feature lacks coordinate information")
+
+    coords = np.array([_centroid(f) for f in features], dtype=float)
+
+    db = DBSCAN(eps=eps, min_samples=min_samples)
+    labels = db.fit_predict(coords)
+
+    summary: Dict[str, Any] = {
+        "num_clusters": int(len({l for l in labels if l != -1})),
+        "noise": int(np.sum(labels == -1)),
+        "clusters": [],
+    }
+
+    for label in sorted(set(labels)):
+        if label == -1:
+            continue
+        idxs = np.where(labels == label)[0]
+        cluster_pts = coords[idxs]
+        centroid = cluster_pts.mean(axis=0)
+        dists = np.linalg.norm(cluster_pts - centroid, axis=1)
+        bbox = [
+            float(cluster_pts[:, 0].min()),
+            float(cluster_pts[:, 1].min()),
+            float(cluster_pts[:, 0].max()),
+            float(cluster_pts[:, 1].max()),
+        ]
+        ids: List[Any] = []
+        for i in idxs:
+            f = features[i]
+            if hasattr(f, "__dict__") and not isinstance(f, dict):
+                f = f.__dict__
+            ids.append(f.get("id", i))
+        summary["clusters"].append(
+            {
+                "cluster_id": int(label),
+                "num_features": int(len(idxs)),
+                "centroid": centroid.tolist(),
+                "avg_distance": float(dists.mean()) if len(dists) > 0 else 0.0,
+                "bbox": bbox,
+                "features": ids,
+            }
+        )
+
+    if summary["clusters"]:
+        largest = max(summary["clusters"], key=lambda c: c["num_features"])
+        avg_spacing = np.mean([c["avg_distance"] for c in summary["clusters"]])
+        logger.info(
+            "Identified %d clusters, largest has %d features, avg spacing %.1f",
+            summary["num_clusters"],
+            largest["num_features"],
+            avg_spacing,
+        )
+    else:
+        logger.info("No clusters found; %d noise points", summary["noise"])
+
+    return {"labels": labels.tolist(), "summary": summary}
 
 
 def exec_code(code: str, local_vars: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:

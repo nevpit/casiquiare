@@ -95,21 +95,29 @@ tools:
   - type: python
     function:
       name: cluster_features
-      description: Cluster feature vectors using k-means.
+      description: Group geographic features into settlement clusters using DBSCAN.
       entrypoint: agents.brain_tools:cluster_features
       parameters:
         type: object
         properties:
           features:
             type: array
-            description: Feature vectors to cluster.
+            description: Feature coordinates or feature dictionaries.
             items:
-              type: array
-              items:
-                type: number
-          n_clusters:
+              oneOf:
+                - type: array
+                  items:
+                    type: number
+                  minItems: 2
+                  maxItems: 2
+                - type: object
+          eps:
+            type: number
+            description: Maximum distance to consider points part of the same cluster.
+            default: 100
+          min_samples:
             type: integer
-            description: Number of clusters to create.
+            description: Minimum number of samples in a cluster.
             default: 2
         required:
           - features
