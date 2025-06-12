@@ -159,9 +159,15 @@ def train_model(
     X = data[feature_names].to_numpy()
     y = data["label"].to_numpy()
 
-    X_train, X_val, y_train, y_val = train_test_split(
-        X, y, test_size=0.2, random_state=random_state, stratify=y
-    )
+    strat = y if len(y) >= len(np.unique(y)) * 2 else None
+    try:
+        X_train, X_val, y_train, y_val = train_test_split(
+            X, y, test_size=0.2, random_state=random_state, stratify=strat
+        )
+    except ValueError:
+        X_train, X_val, y_train, y_val = train_test_split(
+            X, y, test_size=0.2, random_state=random_state, stratify=None
+        )
 
     logger.info("Loaded %d samples, training RandomForest", len(y_train))
     clf = RandomForestClassifier(n_estimators=n_estimators, random_state=random_state)
@@ -207,6 +213,48 @@ def load_model(model_path: str) -> Any:
     logger.info("Loading model from %s", model_path)
     model = joblib.load(model_path)
     logger.info("Loaded model of type %s", type(model).__name__)
+    return model
+
+
+def update_model(
+    model: Any,
+    new_data: Any,
+    labels: Optional[Sequence[int]] = None,
+) -> Any:
+    """Incrementally update ``model`` with ``new_data`` using ``partial_fit``."""
+
+    if np is None:
+        raise RuntimeError("NumPy is required.")
+
+    if not hasattr(model, "partial_fit"):
+        raise ValueError("Model does not support incremental updates")
+
+    X: "np.ndarray"
+    y: "np.ndarray"
+
+    if pd is not None and hasattr(new_data, "__array__") and hasattr(new_data, "columns"):
+        df = new_data  # type: ignore[assignment]
+        if labels is None:
+            if "label" not in df.columns:
+                raise ValueError("DataFrame must include a 'label' column or labels must be provided")
+            y = df["label"].to_numpy()
+            X = df.drop(columns=["label"]).to_numpy()
+        else:
+            y = np.array(list(labels))
+            X = df.to_numpy()
+    else:
+        X = np.array(list(new_data))
+        if labels is None:
+            raise ValueError("labels must be provided when data is not a DataFrame with a 'label' column")
+        y = np.array(list(labels))
+
+    logger.info("Updating model with %d samples", len(y))
+    if not hasattr(model, "classes_"):
+        classes = np.unique(y)
+        model.partial_fit(X, y, classes=classes)
+    else:
+        model.partial_fit(X, y)
+    logger.info("Model updated")
     return model
 
 
@@ -638,6 +686,7 @@ TOOLS: Dict[str, Any] = {
     "ingest_training_data": ingest_training_data,
     "train_model": train_model,
     "load_model": load_model,
+    "update_model": update_model,
     "score_likelihood": score_likelihood,
     "predict_sites": predict_sites,
     "validate_features": validate_features,
@@ -649,6 +698,7 @@ __all__ = [
     "ingest_training_data",
     "train_model",
     "load_model",
+    "update_model",
     "score_likelihood",
     "predict_sites",
     "validate_features",
