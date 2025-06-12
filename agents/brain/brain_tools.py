@@ -47,6 +47,15 @@ except Exception:  # pragma: no cover - library may be missing
     compute_ndvi = None  # type: ignore
 
 try:
+    from processing.environment import (
+        hydrological_distance,
+        hydro_cost_surface,
+    )
+except Exception:  # pragma: no cover - library may be missing
+    hydrological_distance = None  # type: ignore
+    hydro_cost_surface = None  # type: ignore
+
+try:
     import matplotlib.pyplot as plt
 except Exception:  # pragma: no cover - library may be missing
     plt = None  # type: ignore
@@ -89,6 +98,33 @@ def ingest_training_data(
     if "elevation" in df.columns and "slope" not in df.columns:
         elev = df["elevation"].astype(float).to_numpy()
         df["slope"] = np.gradient(elev)
+
+    if {
+        "x",
+        "y",
+        "water_x",
+        "water_y",
+    }.issubset(df.columns) and hydrological_distance is not None:
+        pts = df[["x", "y"]].astype(float).to_numpy()
+        water = df[["water_x", "water_y"]].astype(float).to_numpy()
+        df["hydro_distance"] = hydrological_distance(pts, water)
+
+    climate_cols = [c for c in df.columns if c.startswith("climate_")]
+    if climate_cols:
+        df["climate_metric"] = df[climate_cols].astype(float).mean(axis=1)
+
+    soil_cols = [c for c in df.columns if c.startswith("soil_")]
+    if soil_cols:
+        df["soil_metric"] = df[soil_cols].astype(float).mean(axis=1)
+
+    if (
+        "slope" in df.columns
+        and "hydro_distance" in df.columns
+        and hydro_cost_surface is not None
+    ):
+        dist = df["hydro_distance"].to_numpy()
+        slope_arr = df["slope"].astype(float).to_numpy()
+        df["hydro_cost"] = hydro_cost_surface(dist, slope_arr)
 
     if "label" not in df.columns:
         raise ValueError("Training data must include a 'label' column")
