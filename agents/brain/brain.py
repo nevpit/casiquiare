@@ -80,13 +80,18 @@ class Brain:
         n_estimators: int = 100,
         random_state: Optional[int] = None,
         model_path: str = "brain_model.joblib",
+        model_type: str = "random_forest",
     ) -> ModelResult:
-        """Train a model and store the summary in ``world_state``."""
+        """Train a model and store the summary in ``world_state``.
+
+        Parameters mirror :func:`agents.brain.brain_tools.train_model`.
+        """
         result = brain_tools.train_model(
             data,
             n_estimators=n_estimators,
             random_state=random_state,
             model_path=model_path,
+            model_type=model_type,
         )
         info = ModelResult(
             model_type=result["model_type"],

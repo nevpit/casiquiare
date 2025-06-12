@@ -8,4 +8,5 @@ pyyaml
 scipy
 pytest
 scikit-learn
+xgboost
 Flask

@@ -32,7 +32,7 @@ tools:
   - type: python
     function:
       name: train_model
-      description: Train a random-forest classifier on feature data.
+      description: Train a machine-learning classifier on feature data.
       entrypoint: agents.brain.brain_tools:train_model
       parameters:
         type: object
@@ -51,8 +51,12 @@ tools:
               type: integer
           n_estimators:
             type: integer
-            description: Number of trees in the forest.
+            description: Number of trees or boosting rounds.
             default: 100
+          model_type:
+            type: string
+            description: Algorithm to train (random_forest or xgboost).
+            default: random_forest
         required:
           - data
           - labels
