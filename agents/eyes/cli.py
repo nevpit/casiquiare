@@ -6,8 +6,8 @@ import argparse
 import logging
 from pathlib import Path
 
-from .tools import scan_area
-from . import tools as eyes_tools
+from io_utils.raster import load_raster
+from .tools import scan_area, save_snippets
 from output import save_geojson
 from log_config import setup_logger
 
@@ -18,16 +18,12 @@ logger = setup_logger(__name__)
 def _run_scan(args: argparse.Namespace) -> None:
     """Execute the scan command."""
     logger.info("Scanning %s", args.area_id)
-    features = scan_area(args.area_id)
+
+    data, profile, _ = load_raster(args.area_id)
+    features = scan_area(data, profile)
     logger.info("Detected %d features", len(features))
 
     if args.save_snippets:
-        from importlib import import_module
-
-        load_raster = import_module("io_utils.raster").load_raster
-        save_snippets = eyes_tools.save_snippets
-
-        data, _, _ = load_raster(args.area_id)
         image = data[0] if data.ndim == 3 else data
         features_with_bbox = [
             f for f in features if f.geometry.get("bbox") is not None
