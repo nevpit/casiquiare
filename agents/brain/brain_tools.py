@@ -196,6 +196,20 @@ def train_model(
     return summary
 
 
+def load_model(model_path: str) -> Any:
+    """Load a model saved with :func:`train_model`."""
+
+    try:
+        import joblib
+    except Exception as exc:  # pragma: no cover - library may be missing
+        raise RuntimeError("joblib is required to load models") from exc
+
+    logger.info("Loading model from %s", model_path)
+    model = joblib.load(model_path)
+    logger.info("Loaded model of type %s", type(model).__name__)
+    return model
+
+
 def score_likelihood(model: Any, data: Sequence[Sequence[float]]) -> List[float]:
     """Score feature vectors using a trained model."""
     if np is None:
@@ -623,6 +637,7 @@ def exec_code(
 TOOLS: Dict[str, Any] = {
     "ingest_training_data": ingest_training_data,
     "train_model": train_model,
+    "load_model": load_model,
     "score_likelihood": score_likelihood,
     "predict_sites": predict_sites,
     "validate_features": validate_features,
@@ -633,6 +648,7 @@ TOOLS: Dict[str, Any] = {
 __all__ = [
     "ingest_training_data",
     "train_model",
+    "load_model",
     "score_likelihood",
     "predict_sites",
     "validate_features",
