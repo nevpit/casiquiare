@@ -3,21 +3,11 @@
 from __future__ import annotations
 
 import argparse
-import importlib.util
+import importlib
 import logging
-import sys
 from pathlib import Path
 
-# Ensure the local io_utils.raster module is importable without conflicting with
-# Python's built-in ``io`` module.
-_raster_path = Path(__file__).resolve().parents[2] / "io_utils" / "raster.py"
-_spec = importlib.util.spec_from_file_location("io_utils.raster", _raster_path)
-if _spec and _spec.loader:
-    _module = importlib.util.module_from_spec(_spec)
-    _spec.loader.exec_module(_module)  # type: ignore[arg-type]
-    sys.modules.setdefault("io_utils.raster", _module)
-
-from .tools import scan_area
+from .tools import scan_area, save_snippets
 from output import save_geojson
 from log_config import setup_logger
 
@@ -28,17 +18,15 @@ logger = setup_logger(__name__)
 def _run_scan(args: argparse.Namespace) -> None:
     """Execute the scan command."""
     logger.info("Scanning %s", args.area_id)
-    features = scan_area(args.area_id)
+    load_raster = importlib.import_module("io_utils.raster").load_raster
+
+    data, profile, _ = load_raster(args.area_id)
+    image = data[0] if data.ndim == 3 else data
+
+    features = scan_area(image, profile)
     logger.info("Detected %d features", len(features))
 
     if args.save_snippets:
-        from importlib import import_module
-
-        load_raster = import_module("io_utils.raster").load_raster
-        save_snippets = import_module("agents.eyes.tools").save_snippets
-
-        data, _, _ = load_raster(args.area_id)
-        image = data[0] if data.ndim == 3 else data
         features_with_bbox = [
             f for f in features if f.geometry.get("bbox") is not None
         ]
