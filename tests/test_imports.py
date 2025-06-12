@@ -14,11 +14,11 @@ def test_imports():
     raster_spec.loader.exec_module(raster_module)  # type: ignore[arg-type]
     sys.modules["io_utils.raster"] = raster_module
 
-    importlib.import_module("agents.eyes_tools")
+    importlib.import_module("eyes.tools")
 
-    # Import io_helpers.lidar explicitly from file to ensure local module is used
-    lidar_path = Path(__file__).resolve().parents[1] / "io_helpers" / "lidar.py"
-    spec = importlib.util.spec_from_file_location("io_helpers.lidar", lidar_path)
+    # Import io_utils.lidar explicitly from file to ensure local module is used
+    lidar_path = Path(__file__).resolve().parents[1] / "io_utils" / "lidar.py"
+    spec = importlib.util.spec_from_file_location("io_utils.lidar", lidar_path)
     module = importlib.util.module_from_spec(spec)
     assert spec and spec.loader
     spec.loader.exec_module(module)  # type: ignore[arg-type]

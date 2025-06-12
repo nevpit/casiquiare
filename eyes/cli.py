@@ -35,7 +35,7 @@ def _run_scan(args: argparse.Namespace) -> None:
         from importlib import import_module
 
         load_raster = import_module("io_utils.raster").load_raster
-        save_snippets = import_module("agents.eyes_tools").save_snippets
+        save_snippets = import_module("eyes.tools").save_snippets
 
         data, _, _ = load_raster(args.area_id)
         image = data[0] if data.ndim == 3 else data

@@ -1,4 +1,4 @@
-"""Eyes agent for remote sensing and GIS analysis."""
+"""Eyes agent package combining the core agent class, tools and CLI."""
 
 from __future__ import annotations
 
@@ -6,20 +6,10 @@ import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Tuple, Iterable, Optional
 
-from .eyes_tools import (
-    analyze_lidar,
-    analyze_raster,
-    transform_coordinates,
-    detect_image_features,
-    lidar_tile_dtm,
-    lidar_feature_detection,
-    detect_lines,
-    detect_shapes,
-    TOOLS,
-)
+from . import tools, cli
 
 try:
-    import openai
+    import openai  # pragma: no cover - optional
 except Exception:  # pragma: no cover - library may be missing
     openai = None
 
@@ -34,29 +24,38 @@ class Eyes:
     def __post_init__(self) -> None:
         if openai is not None:
             openai.api_key = os.getenv("OPENAI_API_KEY")
-        self.tools = TOOLS
+        self.tools = tools.TOOLS
 
     # Thin wrappers around utility functions ---------------------------------
 
     def analyze_lidar(
         self, path: str, pipeline: Optional[Dict[str, Any]] = None
     ) -> Iterable["np.ndarray"]:
-        """Delegate to :func:`agents.eyes_tools.analyze_lidar`."""
-        return analyze_lidar(path, pipeline)
+        """Delegate to :func:`eyes.tools.analyze_lidar`."""
+        return tools.analyze_lidar(path, pipeline)
 
     def analyze_raster(self, path: str) -> Dict[str, Any]:
-        """Delegate to :func:`agents.eyes_tools.analyze_raster`."""
-        return analyze_raster(path)
+        """Delegate to :func:`eyes.tools.analyze_raster`."""
+        return tools.analyze_raster(path)
+
+    def analyze_satellite_image(
+        self,
+        path: str,
+        ndvi_bands: Optional[Tuple[int, int]] = None,
+        ndwi_bands: Optional[Tuple[int, int]] = None,
+    ) -> Dict[str, Any]:
+        """Delegate to :func:`eyes.tools.analyze_satellite_image`."""
+        return tools.analyze_satellite_image(path, ndvi_bands, ndwi_bands)
 
     def transform_coordinates(
         self, x: float, y: float, from_epsg: int = 4326, to_epsg: int = 3857
     ) -> Tuple[float, float]:
-        """Delegate to :func:`agents.eyes_tools.transform_coordinates`."""
-        return transform_coordinates(x, y, from_epsg, to_epsg)
+        """Delegate to :func:`eyes.tools.transform_coordinates`."""
+        return tools.transform_coordinates(x, y, from_epsg, to_epsg)
 
     def detect_image_features(self, path: str) -> Dict[str, Any]:
-        """Delegate to :func:`agents.eyes_tools.detect_image_features`."""
-        return detect_image_features(path)
+        """Delegate to :func:`eyes.tools.detect_image_features`."""
+        return tools.detect_image_features(path)
 
     def lidar_tile_dtm(
         self,
@@ -66,8 +65,8 @@ class Eyes:
         out_dir: str | None = None,
         return_paths: bool = False,
     ) -> Dict[str, Any]:
-        """Delegate to :func:`agents.eyes_tools.lidar_tile_dtm`."""
-        return lidar_tile_dtm(path, resolution, out_dir=out_dir, return_paths=return_paths)
+        """Delegate to :func:`eyes.tools.lidar_tile_dtm`."""
+        return tools.lidar_tile_dtm(path, resolution, out_dir=out_dir, return_paths=return_paths)
 
     def lidar_feature_detection(
         self,
@@ -79,8 +78,8 @@ class Eyes:
         out_dir: str | None = None,
         return_paths: bool = False,
     ) -> Dict[str, Any]:
-        """Delegate to :func:`agents.eyes_tools.lidar_feature_detection`."""
-        return lidar_feature_detection(
+        """Delegate to :func:`eyes.tools.lidar_feature_detection`."""
+        return tools.lidar_feature_detection(
             path,
             resolution,
             size_range,
@@ -91,17 +90,17 @@ class Eyes:
 
     def detect_shapes(
         self,
-        image: "Any",
+        image: Any,
         profile: Optional[Dict[str, Any]] = None,
         size_range: Tuple[float, float] = (50.0, 300.0),
         dilation_size: int = 3,
     ) -> List[Dict[str, Any]]:
-        """Delegate to :func:`agents.eyes_tools.detect_shapes`."""
-        return detect_shapes(image, profile, size_range, dilation_size=dilation_size)
+        """Delegate to :func:`eyes.tools.detect_shapes`."""
+        return tools.detect_shapes(image, profile, size_range, dilation_size=dilation_size)
 
-    def detect_lines(self, edge_img: "Any") -> List[Dict[str, Any]]:
-        """Delegate to :func:`agents.eyes_tools.detect_lines`."""
-        return detect_lines(edge_img)
+    def detect_lines(self, edge_img: Any) -> List[Dict[str, Any]]:
+        """Delegate to :func:`eyes.tools.detect_lines`."""
+        return tools.detect_lines(edge_img)
 
     # -----------------------------------------------------------------------
 
@@ -122,3 +121,7 @@ class Eyes:
         ]
         response = openai.ChatCompletion.create(model=self.model, messages=messages)
         return response.choices[0].message.content.strip()
+
+
+# re-export tools module for convenience
+__all__ = ["Eyes", "tools", "cli"]

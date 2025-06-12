@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-import eyes_agent.tools as eyes_tools
+import eyes.tools as eyes_tools
 
 
 def test_scan_area_runtime_dict():
