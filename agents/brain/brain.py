@@ -164,10 +164,14 @@ class Brain:
         return cluster
 
     def exec_code(
-        self, code: str, local_vars: Optional[Dict[str, Any]] = None
+        self,
+        code: str,
+        local_vars: Optional[Dict[str, Any]] = None,
+        *,
+        timeout: int = 5,
     ) -> ExecutionResult:
         """Execute code via :func:`agents.brain.brain_tools.exec_code`."""
-        result = brain_tools.exec_code(code, local_vars)
+        result = brain_tools.exec_code(code, local_vars, timeout=timeout)
         exec_res = ExecutionResult(
             stdout=result.get("stdout", ""),
             result=result.get("result"),

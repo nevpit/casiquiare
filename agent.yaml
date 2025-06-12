@@ -136,5 +136,9 @@ tools:
             type: object
             description: Optional initial variables for the execution context.
             default: {}
+          timeout:
+            type: integer
+            description: Maximum execution time in seconds.
+            default: 5
         required:
           - code
