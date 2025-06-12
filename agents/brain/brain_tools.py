@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from typing import Any, Dict, Iterable, List, Sequence, Optional
+from collections.abc import Mapping
 from contextlib import redirect_stdout
 from io import StringIO
 from pathlib import Path
@@ -286,6 +287,10 @@ def predict_sites(
     # Pre-scored feature vectors
     if isinstance(input_data, Iterable) and input_data and not isinstance(input_data, (str, bytes)):
         first = next(iter(input_data))
+        if isinstance(first, Mapping):
+            raise TypeError(
+                "input_data must be numeric feature vectors or a region specification"
+            )
         if isinstance(first, Iterable) and not isinstance(first, (str, bytes)):
             scores = np.array(score_likelihood(model, input_data))
             summary = {
