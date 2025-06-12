@@ -82,16 +82,17 @@ const MapView: React.FC = () => {
       .catch(() => setSnippetUrl(null));
   }, [selectedFeature]);
 
-  const featureStyle = (feature: any) => {
+  const featureStyle = (feature: any): import('leaflet').PathOptions => {
     const t = feature?.properties?.feature_type || 'unknown';
     const color = typeColors[t] || '#888';
     const conf = feature?.properties?.confidence ?? 0;
     return {
       color,
-      weight: 1,
+      weight: 2,
+      stroke: true,
       fillColor: color,
       fillOpacity: 0.2 + Math.max(0, Math.min(conf, 1)) * 0.8,
-    } as React.CSSProperties;
+    };
   };
 
   const onEachFeature = (feature: any, layer: any) => {
