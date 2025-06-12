@@ -292,14 +292,87 @@ def predict_sites(
 
 
 def validate_features(features: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Return features that contain a valid geometry entry."""
-    valid: List[Dict[str, Any]] = []
-    for feat in features:
-        geom = feat.get("geometry")
-        if isinstance(geom, dict) and ("bbox" in geom or "contour" in geom):
-            valid.append(feat)
-    logger.info("Validated %d/%d features", len(valid), len(features))
-    return valid
+    """Validate Eyes detections against simple archaeological statistics.
+
+    Parameters
+    ----------
+    features:
+        Sequence of detection dictionaries or :class:`~detection.feature.Feature`
+        objects produced by the Eyes agent.
+
+    Returns
+    -------
+    list of dict
+        Validation information for each feature including area ``z``-scores and
+        shape checks.  Each returned dictionary contains at least the keys
+        ``feature_id`` and ``size_match``.
+    """
+
+    if np is None:
+        raise RuntimeError("NumPy is required.")
+
+    # Reference statistics for typical archaeological mounds.  These values are
+    # intentionally broad and would normally be computed from a training
+    # dataset of confirmed sites.
+    stats = {
+        "area_mean": 5000.0,
+        "area_std": 2000.0,
+        "aspect_ratio_mean": 1.0,
+        "aspect_ratio_std": 0.3,
+    }
+    typical_shapes = {"mound", "circle", "rectangle"}
+
+    results: List[Dict[str, Any]] = []
+    for item in features:
+        # Support both dataclass instances and plain dictionaries.
+        if hasattr(item, "__dict__") and not isinstance(item, dict):
+            feat = item.__dict__  # type: ignore[assignment]
+        else:
+            feat = item
+
+        fid = feat.get("id")
+        geom = feat.get("geometry", {})
+
+        # Width/height can be provided via ``dimensions`` or separate keys.
+        dims = feat.get("dimensions")
+        if dims and len(dims) == 2:
+            width, height = float(dims[0]), float(dims[1])
+        else:
+            width = float(feat.get("width", 0.0))
+            height = float(feat.get("height", 0.0))
+
+        area = width * height
+        aspect = width / height if height else 0.0
+        z_area = (area - stats["area_mean"]) / stats["area_std"]
+        z_ar = (aspect - stats["aspect_ratio_mean"]) / stats["aspect_ratio_std"]
+
+        size_match = abs(z_area) <= 2.0
+        aspect_match = abs(z_ar) <= 2.0
+
+        shape = feat.get("shape") or feat.get("feature_type")
+        shape_match = str(shape).lower() in typical_shapes if shape else False
+
+        info = {
+            "feature_id": fid,
+            "area": area,
+            "area_zscore": float(z_area),
+            "size_match": size_match,
+            "aspect_ratio": aspect,
+            "aspect_zscore": float(z_ar),
+            "aspect_match": aspect_match,
+            "shape": shape,
+            "shape_match": shape_match,
+        }
+        results.append(info)
+
+        if not size_match:
+            logger.info("Feature %s area %.1f is outside expected range", fid, area)
+        if not shape_match:
+            logger.debug("Feature %s shape %s atypical", fid, shape)
+
+    matches = sum(1 for r in results if r["size_match"] and r["shape_match"])
+    logger.info("Validated %d features, %d match typical profiles", len(results), matches)
+    return results
 
 
 def cluster_features(
