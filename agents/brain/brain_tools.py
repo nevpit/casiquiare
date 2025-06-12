@@ -1,9 +1,9 @@
 """Utility functions for the Brain agent."""
 
-from __future__ import annotations
 
 import logging
 from typing import Any, Dict, Iterable, List, Sequence, Optional
+from collections.abc import Mapping
 from contextlib import redirect_stdout
 from io import StringIO
 from pathlib import Path
@@ -15,11 +15,15 @@ logger = setup_logger("casiquiare.brain")
 
 try:
     from sklearn.ensemble import RandomForestClassifier
-    from sklearn.cluster import KMeans, DBSCAN
+    from sklearn.cluster import DBSCAN
 except Exception:  # pragma: no cover - library may be missing
     RandomForestClassifier = None  # type: ignore
-    KMeans = None  # type: ignore
     DBSCAN = None  # type: ignore
+
+try:
+    from xgboost import XGBClassifier
+except Exception:  # pragma: no cover - library may be missing
+    XGBClassifier = None  # type: ignore
 
 try:
     import numpy as np
@@ -42,9 +46,25 @@ except Exception:  # pragma: no cover - library may be missing
     compute_ndvi = None  # type: ignore
 
 try:
+    from processing.environment import (
+        hydrological_distance,
+        hydro_cost_surface,
+    )
+except Exception:  # pragma: no cover - library may be missing
+    hydrological_distance = None  # type: ignore
+    hydro_cost_surface = None  # type: ignore
+
+try:
     import matplotlib.pyplot as plt
 except Exception:  # pragma: no cover - library may be missing
     plt = None  # type: ignore
+
+try:
+    from detection.merge import merge_detections
+    from detection.ml_filter import _feature_vector
+except Exception:  # pragma: no cover - library may be missing
+    merge_detections = None  # type: ignore
+    _feature_vector = None  # type: ignore
 
 
 def ingest_training_data(
@@ -85,6 +105,33 @@ def ingest_training_data(
         elev = df["elevation"].astype(float).to_numpy()
         df["slope"] = np.gradient(elev)
 
+    if {
+        "x",
+        "y",
+        "water_x",
+        "water_y",
+    }.issubset(df.columns) and hydrological_distance is not None:
+        pts = df[["x", "y"]].astype(float).to_numpy()
+        water = df[["water_x", "water_y"]].astype(float).to_numpy()
+        df["hydro_distance"] = hydrological_distance(pts, water)
+
+    climate_cols = [c for c in df.columns if c.startswith("climate_")]
+    if climate_cols:
+        df["climate_metric"] = df[climate_cols].astype(float).mean(axis=1)
+
+    soil_cols = [c for c in df.columns if c.startswith("soil_")]
+    if soil_cols:
+        df["soil_metric"] = df[soil_cols].astype(float).mean(axis=1)
+
+    if (
+        "slope" in df.columns
+        and "hydro_distance" in df.columns
+        and hydro_cost_surface is not None
+    ):
+        dist = df["hydro_distance"].to_numpy()
+        slope_arr = df["slope"].astype(float).to_numpy()
+        df["hydro_cost"] = hydro_cost_surface(dist, slope_arr)
+
     if "label" not in df.columns:
         raise ValueError("Training data must include a 'label' column")
 
@@ -106,8 +153,9 @@ def train_model(
     n_estimators: int = 100,
     random_state: Optional[int] = None,
     model_path: str = "brain_model.joblib",
+    model_type: str = "random_forest",
 ) -> Dict[str, Any]:
-    """Train a random-forest classifier on feature data.
+    """Train a machine-learning classifier on feature data.
 
     Parameters
     ----------
@@ -116,11 +164,13 @@ def train_model(
         column. When ``None`` the dataset is loaded using
         :func:`ingest_training_data`.
     n_estimators:
-        Number of trees in the forest.
+        Number of trees or boosting rounds for the model.
     random_state:
         Optional random seed for reproducibility.
     model_path:
         File path where the trained model will be saved using ``joblib``.
+    model_type:
+        Algorithm to train (``"random_forest"`` or ``"xgboost"``).
 
     Returns
     -------
@@ -159,13 +209,33 @@ def train_model(
     X = data[feature_names].to_numpy()
     y = data["label"].to_numpy()
 
-    X_train, X_val, y_train, y_val = train_test_split(
-        X, y, test_size=0.2, random_state=random_state, stratify=y
-    )
+    strat = y if len(y) >= len(np.unique(y)) * 2 else None
+    try:
+        X_train, X_val, y_train, y_val = train_test_split(
+            X, y, test_size=0.2, random_state=random_state, stratify=strat
+        )
+    except ValueError:
+        X_train, X_val, y_train, y_val = train_test_split(
+            X, y, test_size=0.2, random_state=random_state, stratify=None
+        )
 
-    logger.info("Loaded %d samples, training RandomForest", len(y_train))
-    clf = RandomForestClassifier(n_estimators=n_estimators, random_state=random_state)
-    clf.fit(X_train, y_train)
+    if model_type == "xgboost":
+        if XGBClassifier is None:
+            raise RuntimeError("xgboost is required for model_type='xgboost'")
+        logger.info("Loaded %d samples, training XGBoost", len(y_train))
+        clf = XGBClassifier(
+            n_estimators=n_estimators,
+            random_state=random_state,
+            use_label_encoder=False,
+            eval_metric="logloss",
+        )
+        clf.fit(X_train, y_train)
+    else:
+        if RandomForestClassifier is None:
+            raise RuntimeError("scikit-learn is required for RandomForest")
+        logger.info("Loaded %d samples, training RandomForest", len(y_train))
+        clf = RandomForestClassifier(n_estimators=n_estimators, random_state=random_state)
+        clf.fit(X_train, y_train)
 
     preds = clf.predict(X_val)
     acc = float(accuracy_score(y_val, preds))
@@ -187,7 +257,7 @@ def train_model(
 
     summary = {
         "model": clf,
-        "model_type": "RandomForestClassifier",
+        "model_type": type(clf).__name__,
         "metrics": {"accuracy": acc, "roc_auc": roc},
         "feature_importances": importances,
         "model_path": model_path,
@@ -196,8 +266,63 @@ def train_model(
     return summary
 
 
+def load_model(model_path: str) -> Any:
+    """Load a model saved with :func:`train_model`."""
+
+    try:
+        import joblib
+    except Exception as exc:  # pragma: no cover - library may be missing
+        raise RuntimeError("joblib is required to load models") from exc
+
+    logger.info("Loading model from %s", model_path)
+    model = joblib.load(model_path)
+    logger.info("Loaded model of type %s", type(model).__name__)
+    return model
+
+
+def update_model(
+    model: Any,
+    new_data: Any,
+    labels: Optional[Sequence[int]] = None,
+) -> Any:
+    """Incrementally update ``model`` with ``new_data`` using ``partial_fit``."""
+
+    if np is None:
+        raise RuntimeError("NumPy is required.")
+
+    if not hasattr(model, "partial_fit"):
+        raise ValueError("Model does not support incremental updates")
+
+    X: "np.ndarray"
+    y: "np.ndarray"
+
+    if pd is not None and hasattr(new_data, "__array__") and hasattr(new_data, "columns"):
+        df = new_data  # type: ignore[assignment]
+        if labels is None:
+            if "label" not in df.columns:
+                raise ValueError("DataFrame must include a 'label' column or labels must be provided")
+            y = df["label"].to_numpy()
+            X = df.drop(columns=["label"]).to_numpy()
+        else:
+            y = np.array(list(labels))
+            X = df.to_numpy()
+    else:
+        X = np.array(list(new_data))
+        if labels is None:
+            raise ValueError("labels must be provided when data is not a DataFrame with a 'label' column")
+        y = np.array(list(labels))
+
+    logger.info("Updating model with %d samples", len(y))
+    if not hasattr(model, "classes_"):
+        classes = np.unique(y)
+        model.partial_fit(X, y, classes=classes)
+    else:
+        model.partial_fit(X, y)
+    logger.info("Model updated")
+    return model
+
+
 def score_likelihood(model: Any, data: Sequence[Sequence[float]]) -> List[float]:
-    """Score feature vectors using a trained model."""
     if np is None:
         raise RuntimeError("NumPy is required.")
     X = np.array(list(data))
@@ -287,6 +412,10 @@ def predict_sites(
     # Pre-scored feature vectors
     if isinstance(input_data, Iterable) and input_data and not isinstance(input_data, (str, bytes)):
         first = next(iter(input_data))
+        if isinstance(first, Mapping):
+            raise TypeError(
+                "input_data must be numeric feature vectors or a region specification"
+            )
         if isinstance(first, Iterable) and not isinstance(first, (str, bytes)):
             scores = np.array(score_likelihood(model, input_data))
             summary = {
@@ -523,11 +652,52 @@ def cluster_features(
     return {"labels": labels.tolist(), "summary": summary}
 
 
-def exec_code(code: str, local_vars: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-    """Execute Python code in a restricted sandbox."""
+def fuse_score_detections(
+    model: Any,
+    lidar: Sequence[Dict[str, Any]],
+    satellite: Sequence[Dict[str, Any]],
+    *,
+    threshold: float = 25.0,
+) -> Dict[str, Any]:
+    """Merge Eyes detections from multiple sensors and score them.
 
-    snippet = code if len(code) <= 200 else code[:200] + "..."
-    logger.info("Executing code snippet: %s", snippet)
+    Parameters
+    ----------
+    model:
+        Trained model supporting ``predict`` or ``predict_proba``.
+    lidar:
+        Detections generated from LiDAR tiles.
+    satellite:
+        Detections from satellite imagery.
+    threshold:
+        Centroid distance for merging LiDAR and satellite detections.
+
+    Returns
+    -------
+    dict
+        Mapping with ``merged`` detections and their likelihood ``scores``.
+    """
+
+    if np is None or merge_detections is None or _feature_vector is None:
+        raise RuntimeError("Detection utilities and NumPy are required.")
+
+    logger.info(
+        "Fusing %d LiDAR and %d satellite detections", len(lidar), len(satellite)
+    )
+    merged = merge_detections(list(lidar), list(satellite), threshold=threshold)
+    logger.debug("Merged into %d detections", len(merged))
+
+    vectors = [_feature_vector(d) for d in merged]
+    scores = score_likelihood(model, vectors)
+    logger.info("Scored %d merged detections", len(scores))
+    return {"merged": merged, "scores": scores}
+
+
+import multiprocessing
+
+
+def _run_snippet(code: str, local_vars: Optional[Dict[str, Any]], queue: "multiprocessing.Queue") -> None:
+    """Helper executed in a subprocess to run code snippets."""
     safe_builtins = {
         "print": print,
         "range": range,
@@ -571,31 +741,59 @@ def exec_code(code: str, local_vars: Optional[Dict[str, Any]] = None) -> Dict[st
                 fig.savefig(path)
                 figures.append(path)
             plt.close("all")
-        logger.info("Executed code snippet successfully: %s", snippet)
-        if result is not None:
-            logger.debug("Execution result: %s", result)
+        queue.put(
+            {
+                "stdout": stdout_buf.getvalue(),
+                "result": result,
+                "figures": figures,
+                "locals": env,
+            }
+        )
     except Exception as exc:  # pragma: no cover - runtime errors
-        logger.exception("Error executing code snippet: %s", snippet)
-        return {
-            "stdout": stdout_buf.getvalue(),
-            "error": str(exc),
-            "result": None,
-            "figures": figures,
-        }
+        queue.put(
+            {
+                "stdout": stdout_buf.getvalue(),
+                "error": str(exc),
+                "result": None,
+                "figures": figures,
+            }
+        )
 
-    return {
-        "stdout": stdout_buf.getvalue(),
-        "result": result,
-        "figures": figures,
-        "locals": env,
-    }
+
+def exec_code(
+    code: str,
+    local_vars: Optional[Dict[str, Any]] = None,
+    *,
+    timeout: int = 5,
+) -> Dict[str, Any]:
+    """Execute Python code in a restricted sandbox with a time limit."""
+
+    snippet = code if len(code) <= 200 else code[:200] + "..."
+    logger.info("Executing code snippet: %s", snippet)
+    queue: multiprocessing.Queue = multiprocessing.Queue()
+    proc = multiprocessing.Process(target=_run_snippet, args=(code, local_vars, queue))
+    proc.start()
+    proc.join(timeout)
+    if proc.is_alive():
+        logger.error("Execution timed out after %d seconds", timeout)
+        proc.terminate()
+        proc.join()
+        return {"stdout": "", "result": None, "error": "timeout", "figures": []}
+
+    if not queue.empty():
+        return queue.get()
+
+    return {"stdout": "", "result": None, "error": "no result", "figures": []}
 
 
 TOOLS: Dict[str, Any] = {
     "ingest_training_data": ingest_training_data,
     "train_model": train_model,
+    "load_model": load_model,
+    "update_model": update_model,
     "score_likelihood": score_likelihood,
     "predict_sites": predict_sites,
+    "fuse_score_detections": fuse_score_detections,
     "validate_features": validate_features,
     "cluster_features": cluster_features,
     "exec_code": exec_code,
@@ -604,8 +802,11 @@ TOOLS: Dict[str, Any] = {
 __all__ = [
     "ingest_training_data",
     "train_model",
+    "load_model",
+    "update_model",
     "score_likelihood",
     "predict_sites",
+    "fuse_score_detections",
     "validate_features",
     "cluster_features",
     "exec_code",
