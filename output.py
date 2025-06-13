@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, is_dataclass
+from collections import Counter
+from pathlib import Path
 
 from detection.feature import Feature
 from typing import Any, Dict, List
@@ -33,6 +35,15 @@ def _feature_to_dict(feature: Feature) -> dict:
     raise TypeError("feature must be a dataclass instance")
 
 
+def _write_summary(features: list[Feature], summary_path: str) -> None:
+    """Write a simple summary text file for ``features``."""
+    counts = Counter(f.feature_type for f in features)
+    lines = [f"Features found: {len(features)}"]
+    for name, count in sorted(counts.items()):
+        lines.append(f"{name}: {count}")
+    Path(summary_path).write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
 def serialize_features(features: list[Feature], out_path: str) -> None:
     """Serialize a list of :class:`Feature` objects to JSON.
 
@@ -46,6 +57,9 @@ def serialize_features(features: list[Feature], out_path: str) -> None:
     feature_dicts = [_feature_to_dict(f) for f in features]
     with open(out_path, "w", encoding="utf-8") as fh:
         json.dump(feature_dicts, fh, ensure_ascii=False, indent=2)
+
+    summary_path = Path(out_path).with_name(Path(out_path).stem + "_summary.txt")
+    _write_summary(features, str(summary_path))
 
 
 def save_geojson(features: list[Feature], out_path: str) -> None:
@@ -88,6 +102,9 @@ def save_geojson(features: list[Feature], out_path: str) -> None:
     collection: Dict[str, Any] = {"type": "FeatureCollection", "features": geo_features}
     with open(out_path, "w", encoding="utf-8") as fh:
         json.dump(collection, fh, ensure_ascii=False, indent=2)
+
+    summary_path = Path(out_path).with_name(Path(out_path).stem + "_summary.txt")
+    _write_summary(features, str(summary_path))
 
 
 def save_polygon_geojson(
@@ -143,6 +160,9 @@ def save_polygon_geojson(
     }
     with open(out_path, "w", encoding="utf-8") as fh:
         json.dump(collection, fh, ensure_ascii=False, indent=2)
+
+    summary_path = Path(out_path).with_name(Path(out_path).stem + "_summary.txt")
+    _write_summary(features, str(summary_path))
 
 
 def features_to_shapely(
