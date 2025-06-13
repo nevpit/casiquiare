@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field, asdict
 from typing import Any, Dict, Optional, Sequence
+from pathlib import Path
 
 from log_config import setup_logger
 
@@ -98,6 +99,7 @@ class Brain:
             metrics=result["metrics"],
             feature_importances=result["feature_importances"],
             model_path=result["model_path"],
+            model_card=result["model_card"],
             model=result["model"],
         )
         info_dict = asdict(info)
@@ -122,6 +124,7 @@ class Brain:
             metrics={},
             feature_importances=importances,
             model_path=model_path,
+            model_card=str(Path(model_path).with_suffix(".md")),
             model=model,
         )
         info_dict = asdict(info)

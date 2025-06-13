@@ -1,4 +1,5 @@
 import pytest
+from pathlib import Path
 
 from agents.brain import brain_tools
 
@@ -23,11 +24,18 @@ def test_train_model_runtime(tmp_path):
         with pytest.raises(RuntimeError):
             brain_tools.train_model(df)
     else:
-        info = brain_tools.train_model(df, n_estimators=5, random_state=0, model_path=str(tmp_path / "model.joblib"))
+        info = brain_tools.train_model(
+            df,
+            n_estimators=5,
+            random_state=0,
+            model_path=str(tmp_path / "model.joblib"),
+        )
         assert isinstance(info, dict)
         assert "model_type" in info
         assert "metrics" in info
         assert "feature_importances" in info
+        assert "model_card" in info
+        assert Path(info["model_card"]).exists()
 
 
 def test_train_model_xgboost(tmp_path):
@@ -58,4 +66,5 @@ def test_train_model_xgboost(tmp_path):
             model_type="xgboost",
         )
         assert info["model_type"] == "XGBClassifier"
+        assert Path(info["model_card"]).exists()
 

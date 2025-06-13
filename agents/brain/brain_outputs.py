@@ -15,6 +15,7 @@ class ModelResult:
     metrics: Dict[str, float]
     feature_importances: Dict[str, float]
     model_path: str
+    model_card: str
     # Actual model object kept for internal use only
     model: Any = field(repr=False, default=None)
 

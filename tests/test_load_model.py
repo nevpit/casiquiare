@@ -1,4 +1,5 @@
 import importlib.util
+from pathlib import Path
 import pytest
 
 from agents.brain import brain_tools
@@ -37,6 +38,7 @@ def test_load_model_after_training(tmp_path):
         model_path=str(tmp_path / "model.joblib"),
     )
     model = brain_tools.load_model(info["model_path"])
+    assert Path(info["model_card"]).exists()
     assert hasattr(model, "predict")
 
 

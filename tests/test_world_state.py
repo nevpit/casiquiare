@@ -1,4 +1,5 @@
 import pytest
+from pathlib import Path
 
 from agents.brain import Brain
 from agents.brain import brain_tools
@@ -31,3 +32,4 @@ def test_brain_updates_world_state(tmp_path):
         )
         assert res.model_type == "RandomForestClassifier"
         assert world_state["latest_model"]["model_type"] == "RandomForestClassifier"
+        assert Path(world_state["latest_model"]["model_card"]).exists()

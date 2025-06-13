@@ -251,6 +251,23 @@ def train_model(
     except Exception:
         logger.info("Saved model to %s", model_path)
 
+    card_path = str(Path(model_path).with_suffix(".md"))
+    try:
+        with open(card_path, "w", encoding="utf-8") as fh:
+            fh.write("# Model Card\n\n")
+            fh.write(f"**Model path:** {model_path}\n\n")
+            fh.write(f"**Model type:** {type(clf).__name__}\n\n")
+            fh.write("## Metrics\n")
+            fh.write(f"- Accuracy: {acc:.3f}\n")
+            fh.write(f"- ROC AUC: {roc:.3f}\n")
+            fh.write("\n## Feature Importances\n")
+            for name, val in importances.items():
+                fh.write(f"- {name}: {val:.6f}\n")
+        logger.info("Wrote model card to %s", card_path)
+    except Exception as exc:  # pragma: no cover - ignore card failures
+        logger.error("Failed to write model card: %s", exc)
+        card_path = ""
+
     importances = {name: float(val) for name, val in zip(feature_names, clf.feature_importances_)}
     logger.info("Validation accuracy = %.3f, ROC AUC = %.3f", acc, roc)
     logger.info("Important features = %s", importances)
@@ -261,6 +278,7 @@ def train_model(
         "metrics": {"accuracy": acc, "roc_auc": roc},
         "feature_importances": importances,
         "model_path": model_path,
+        "model_card": card_path,
     }
     logger.info("Training completed")
     return summary
