@@ -100,7 +100,10 @@ class Brain:
             model_path=result["model_path"],
             model=result["model"],
         )
-        world_state["latest_model"] = asdict(info)
+        info_dict = asdict(info)
+        # Avoid storing the raw model object in ``world_state`` to keep it JSON safe
+        info_dict.pop("model", None)
+        world_state["latest_model"] = info_dict
         logger.info("Stored latest_model in world_state")
         logger.debug("Model metrics: %s", info.metrics)
         log_message("brain", "train_model", asdict(info))
@@ -121,7 +124,10 @@ class Brain:
             model_path=model_path,
             model=model,
         )
-        world_state["latest_model"] = asdict(info)
+        info_dict = asdict(info)
+        # Only the model's file path is kept in ``world_state`` for JSON safety
+        info_dict.pop("model", None)
+        world_state["latest_model"] = info_dict
         logger.info("Loaded model from %s", model_path)
         log_message("brain", "load_model", asdict(info))
         return info
