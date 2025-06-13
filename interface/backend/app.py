@@ -15,9 +15,9 @@ from .routes.brain import bp as brain_bp
 def create_app(static_path: Path | None = None) -> Flask:
     """Create and configure the Flask application."""
     if static_path is None:
-        static_path = Path(__file__).resolve().parents[2] / "frontend" / "build"
+        static_path = Path(__file__).resolve().parents[1] / "interface" / "frontend" / "build"
 
-    app = Flask(__name__, static_folder=str(static_path))
+    app = Flask(__name__, static_folder=None)
 
     # Load environment-based configuration for route handlers
     app.config.update(load_backend_config())
