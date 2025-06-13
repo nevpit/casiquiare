@@ -51,6 +51,8 @@ def test_serialize_features(tmp_path):
     data = json.load(open(out_file))
     assert isinstance(data, list)
     assert data[0]["id"] == 1
+    summary = (tmp_path / "feats_summary.txt").read_text()
+    assert "Features found: 1" in summary
 
 def test_save_geojson(tmp_path):
     feats = [make_feature()]
@@ -60,6 +62,8 @@ def test_save_geojson(tmp_path):
     coll = json.load(open(out_file))
     assert coll["type"] == "FeatureCollection"
     assert coll["features"][0]["geometry"]["type"] == "Point"
+    summary = (tmp_path / "feats_summary.txt").read_text()
+    assert "mound: 1" in summary
 
 
 def test_save_geojson_bbox(tmp_path):
@@ -69,6 +73,8 @@ def test_save_geojson_bbox(tmp_path):
     assert out_file.exists()
     coll = json.load(open(out_file))
     assert coll["features"][0]["geometry"]["type"] == "Polygon"
+    summary = (tmp_path / "bbox_summary.txt").read_text()
+    assert "Features found: 1" in summary
 
 
 def test_save_polygon_geojson(tmp_path):
@@ -85,6 +91,8 @@ def test_save_polygon_geojson(tmp_path):
         assert data["crs"] == crs.to_string()
         assert data["features"][0]["geometry"]["type"] == "Polygon"
         assert "centroid" in data["features"][0]["properties"]
+        summary = (tmp_path / "polys_summary.txt").read_text()
+        assert "mound: 1" in summary
 
 
 def test_save_polygon_geojson_contour(tmp_path):
@@ -99,6 +107,8 @@ def test_save_polygon_geojson_contour(tmp_path):
         save_polygon_geojson(feats, transform, crs, str(out_file))
         data = json.load(open(out_file))
         assert data["features"][0]["geometry"]["type"] == "Polygon"
+        summary = (tmp_path / "contours_summary.txt").read_text()
+        assert "outline: 1" in summary
 
 
 def test_features_to_shapely(tmp_path):

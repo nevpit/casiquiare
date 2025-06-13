@@ -49,6 +49,8 @@ Use `save_snippets` to crop 256 × 256 PNG images around features returned
 by `detect_shapes` for quick visual inspection. Detection results can be
 saved with `output.serialize_features` or exported as a GeoJSON
 `FeatureCollection` using `output.save_geojson`.
+Both helpers now write a `<name>_summary.txt` file alongside the JSON with a
+count of detected feature types.
 
 `scan_tiles_concurrent` leverages `concurrent.futures` to run `scan_area` on
 multiple raster tiles in parallel, returning the detections in input order.
