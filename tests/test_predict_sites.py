@@ -32,3 +32,12 @@ def test_predict_sites_region_runtime():
         assert "scores_map" in res
         assert res["scores_map"].shape == (3, 3)
         assert "summary" in res
+
+
+def test_predict_sites_rejects_dict_list():
+    """Ensure lists of dictionaries are not treated as feature vectors."""
+    data = [{"x": 1.0, "y": 2.0}, {"x": 2.0, "y": 3.0}]
+    if brain_tools.np is None:
+        pytest.skip("NumPy is required")
+    with pytest.raises(TypeError):
+        brain_tools.predict_sites(DummyModel(), data)

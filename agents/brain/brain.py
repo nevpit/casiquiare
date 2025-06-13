@@ -80,13 +80,18 @@ class Brain:
         n_estimators: int = 100,
         random_state: Optional[int] = None,
         model_path: str = "brain_model.joblib",
+        model_type: str = "random_forest",
     ) -> ModelResult:
-        """Train a model and store the summary in ``world_state``."""
+        """Train a model and store the summary in ``world_state``.
+
+        Parameters mirror :func:`agents.brain.brain_tools.train_model`.
+        """
         result = brain_tools.train_model(
             data,
             n_estimators=n_estimators,
             random_state=random_state,
             model_path=model_path,
+            model_type=model_type,
         )
         info = ModelResult(
             model_type=result["model_type"],
@@ -99,6 +104,26 @@ class Brain:
         logger.info("Stored latest_model in world_state")
         logger.debug("Model metrics: %s", info.metrics)
         log_message("brain", "train_model", asdict(info))
+        return info
+
+    def load_model(self, model_path: str) -> ModelResult:
+        """Reload a model from disk and store it in ``world_state``."""
+        model = brain_tools.load_model(model_path)
+        importances = (
+            {str(i): float(v) for i, v in enumerate(model.feature_importances_)}
+            if hasattr(model, "feature_importances_")
+            else {}
+        )
+        info = ModelResult(
+            model_type=type(model).__name__,
+            metrics={},
+            feature_importances=importances,
+            model_path=model_path,
+            model=model,
+        )
+        world_state["latest_model"] = asdict(info)
+        logger.info("Loaded model from %s", model_path)
+        log_message("brain", "load_model", asdict(info))
         return info
 
     def score_likelihood(self, model: Any, data: Sequence[Sequence[float]]):
@@ -164,10 +189,14 @@ class Brain:
         return cluster
 
     def exec_code(
-        self, code: str, local_vars: Optional[Dict[str, Any]] = None
+        self,
+        code: str,
+        local_vars: Optional[Dict[str, Any]] = None,
+        *,
+        timeout: int = 5,
     ) -> ExecutionResult:
         """Execute code via :func:`agents.brain.brain_tools.exec_code`."""
-        result = brain_tools.exec_code(code, local_vars)
+        result = brain_tools.exec_code(code, local_vars, timeout=timeout)
         exec_res = ExecutionResult(
             stdout=result.get("stdout", ""),
             result=result.get("result"),

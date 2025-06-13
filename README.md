@@ -27,6 +27,8 @@ binary edge image using the Hough transform.
 
 `merge_detections` combines LiDAR and satellite candidates when their
 centroids fall within 25 m, helping reduce duplicates across sensors.
+`fuse_score_detections` builds on this by merging detections and immediately
+scoring them with a trained model.
 
 Utility modules under `processing` extend the toolkit with low-level I/O helpers.
 
@@ -190,4 +192,17 @@ requests populate ``latest_prediction``.  Each action is logged to a
 from world_state import world_state
 model_info = world_state.get("latest_model")
 clusters = world_state.get("clusters", {})
+```
+
+## Configurable Brain models
+
+The ``Brain`` agent trains a classifier to estimate site likelihoods. By
+default a ``RandomForestClassifier`` is used, but ``train_model`` now accepts a
+``model_type`` option so you can switch to ``xgboost`` if the ``xgboost``
+package is installed:
+
+```python
+from agents.brain import brain_tools
+
+info = brain_tools.train_model(df, model_type="xgboost", n_estimators=200)
 ```
