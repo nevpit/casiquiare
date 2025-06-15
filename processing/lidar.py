@@ -126,7 +126,10 @@ def build_dtm(pipeline: "pdal.Pipeline", resolution: float = 1.0) -> Tuple["np.n
     if rasterio is None or np is None:
         raise RuntimeError("rasterio and NumPy are required.")
 
-    spec = json.loads(pipeline.json)
+    # ``Pipeline`` exposes the pipeline specification via :py:meth:`toJSON`.
+    # Earlier versions of the code used ``pipeline.json`` which does not exist
+    # in the upstream PDAL API and caused an ``AttributeError`` at runtime.
+    spec = json.loads(pipeline.toJSON())
     spec["pipeline"].extend(
         [
             {"type": "filters.smrf"},
