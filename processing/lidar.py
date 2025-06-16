@@ -168,6 +168,12 @@ def build_dtm(pipeline: "pdal.Pipeline", resolution: float = 1.0) -> Tuple["np.n
     dtm_pl = pdal.Pipeline(json.dumps(spec))
     dtm_pl.execute()
 
+    if gdal is not None:
+        ds = gdal.Open("/vsimem/dtm.tif")
+        if ds is None:
+            raise RuntimeError("PDAL pipeline failed to generate DTM")
+        ds = None
+
     with rasterio.open("/vsimem/dtm.tif") as src:
         dtm = src.read(1)
         profile = src.profile
