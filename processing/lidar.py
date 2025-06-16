@@ -27,6 +27,7 @@ except Exception:  # pragma: no cover - library may be missing
 
 try:
     from osgeo import gdal
+    gdal.UseExceptions()  # Avoid FutureWarning in GDAL >= 3
 except Exception:  # pragma: no cover - library may be missing
     gdal = None  # type: ignore
 
