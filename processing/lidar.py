@@ -54,6 +54,13 @@ def write_geotiff(path: str, array: "np.ndarray", profile: Dict[str, Any]) -> No
 
     prof = profile.copy()
     prof.update(driver="GTiff", count=count, dtype=arr.dtype)
+    
+    nodata = prof.get("nodata")
+    if nodata is not None and np is not None:
+        if np.issubdtype(arr.dtype, np.integer):
+            info = np.iinfo(arr.dtype)
+            if nodata < info.min or nodata > info.max:
+                prof.pop("nodata")
 
     with rasterio.open(path, "w", **prof) as dst:
         if arr.ndim == 2:
@@ -105,7 +112,12 @@ def generate_hillshade(dtm: "np.ndarray", azimuth: int = 315, altitude: int = 45
     src.SetGeoTransform([0, 1, 0, 0, 0, -1])
 
     options = gdal.DEMProcessingOptions(azimuth=azimuth, altitude=altitude)
-    dst = gdal.DEMProcessing("", src, "hillshade", options=options)
+    dst_ds = gdal.DEMProcessing(
+        "",                  # Output filename (empty means in-memory)
+        src_ds,              # Source dataset
+        "hillshade",         # Processing type
+        options + ["-of", "MEM"]  # Options with MEM driver
+    )
 
     hillshade = dst.ReadAsArray()
     return hillshade.reshape(dtm.shape)
@@ -130,7 +142,14 @@ def build_dtm(pipeline: "pdal.Pipeline", resolution: float = 1.0) -> Tuple["np.n
     # Earlier versions of the code used ``pipeline.json`` which does not exist
     # in the upstream PDAL API and caused an ``AttributeError`` at runtime.
     spec = json.loads(pipeline.toJSON())
-    spec["pipeline"].extend(
+    
+    if isinstance(spec, dict):
+        stages = spec.setdefault("pipeline", [])
+    else:  # ``spec`` is already a list of stages
+        stages = spec
+        spec = {"pipeline": stages}
+
+    stages.extend( 
         [
             {"type": "filters.smrf"},
             {"type": "filters.range", "limits": "Classification[2:2]"},

@@ -1,4 +1,5 @@
 openai
+jupyterlab
 opencv-python-headless
 numpy
 rasterio
