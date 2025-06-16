@@ -23,14 +23,16 @@ except Exception:  # pragma: no cover - library may be missing
 from processing.geo import bbox_to_polygon, bbox_centroid, contour_to_polygon
 
 
-def _feature_to_dict(feature: Feature) -> dict:
-    """Convert a :class:`Feature` to a JSON-serializable dictionary."""
+def _feature_to_dict(feature: Feature | Dict[str, Any]) -> Dict[str, Any]:
+    """Convert a :class:`Feature` or mapping to a JSON-serializable dictionary."""
     if is_dataclass(feature):
         return asdict(feature)
-    # Fallback if feature is already a mapping like object
+    if isinstance(feature, dict):
+        return dict(feature)
+    # Fallback if feature is already a mapping-like object
     if hasattr(feature, "__dict__"):
         return dict(feature.__dict__)
-    raise TypeError("feature must be a dataclass instance")
+    raise TypeError("feature must be a dataclass instance or mapping")
 
 
 def serialize_features(features: list[Feature], out_path: str) -> None:
