@@ -114,12 +114,15 @@ def generate_hillshade(dtm: "np.ndarray", azimuth: int = 315, altitude: int = 45
     options = gdal.DEMProcessingOptions(azimuth=azimuth, altitude=altitude)
     dst_ds = gdal.DEMProcessing(
         "",                  # Output filename (empty means in-memory)
-        src_ds,              # Source dataset
+        src,                 # Source dataset
         "hillshade",         # Processing type
         options + ["-of", "MEM"]  # Options with MEM driver
     )
 
-    hillshade = dst.ReadAsArray()
+    if dst_ds is None:
+        raise RuntimeError("gdal.DEMProcessing failed to generate hillshade")
+
+    hillshade = dst_ds.ReadAsArray()
     return hillshade.reshape(dtm.shape)
 
 
