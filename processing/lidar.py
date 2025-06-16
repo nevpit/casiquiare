@@ -112,12 +112,16 @@ def generate_hillshade(dtm: "np.ndarray", azimuth: int = 315, altitude: int = 45
     src.GetRasterBand(1).WriteArray(dtm)
     src.SetGeoTransform([0, 1, 0, 0, 0, -1])
 
-    options = gdal.DEMProcessingOptions(azimuth=azimuth, altitude=altitude)
+    options = gdal.DEMProcessingOptions(
+        azimuth=azimuth,
+        altitude=altitude,
+        format="MEM",
+    )
     dst_ds = gdal.DEMProcessing(
-        "",                  # Output filename (empty means in-memory)
-        src,                 # Source dataset
-        "hillshade",         # Processing type
-        options + ["-of", "MEM"]  # Options with MEM driver
+        "",  # Output filename (empty means in-memory)
+        src,  # Source dataset
+        "hillshade",  # Processing type
+        options=options,
     )
 
     if dst_ds is None:
