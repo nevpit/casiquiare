@@ -6,6 +6,8 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+import os
+
 from log_config import setup_logger
 
 logger = setup_logger("casiquiare.memory")
@@ -27,14 +29,15 @@ except Exception:  # pragma: no cover - optional dependency may be missing
     detect = None  # type: ignore
 
 try:
-    from transformers import pipeline  # type: ignore
-except Exception:  # pragma: no cover - optional dependency may be missing
-    pipeline = None  # type: ignore
-
-try:
     from pdfminer.high_level import extract_text as pdf_extract_text  # type: ignore
 except Exception:  # pragma: no cover - optional dependency may be missing
     pdf_extract_text = None  # type: ignore
+
+try:
+    from openai import OpenAI
+    openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+except Exception:  # pragma: no cover - optional dependency may be missing
+    openai_client = None
 
 # Simple in-memory corpus used for demonstrations
 CORPUS: Dict[str, str] = {
@@ -100,37 +103,28 @@ def detect_language(text: str) -> Optional[str]:
         return None
 
 
-_TRANSLATORS: Dict[str, Any] = {}
-
-
-def _get_translator(src_lang: str):
-    if pipeline is None:
-        return None
-    model_map = {
-        "es": "Helsinki-NLP/opus-mt-es-en",
-        "pt": "Helsinki-NLP/opus-mt-pt-en",
-    }
-    model = model_map.get(src_lang)
-    if model is None:
-        return None
-    if src_lang not in _TRANSLATORS:
-        try:
-            _TRANSLATORS[src_lang] = pipeline("translation", model=model)
-        except Exception as exc:  # pragma: no cover - runtime failure
-            logger.warning("Failed to load translation model %s: %s", model, exc)
-            _TRANSLATORS[src_lang] = None
-    return _TRANSLATORS[src_lang]
-
-
 def translate_text(text: str, src_lang: str, target_lang: str = "en") -> str:
-    """Translate text using MarianMT models via ``transformers`` if available."""
-    translator = _get_translator(src_lang)
-    if translator is None:
-        logger.info("Translation model not available; returning original text")
+    """Translate text using an OpenAI model if available."""
+    if openai_client is None:
+        logger.info("OpenAI client not available; returning original text")
         return text
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "You translate text while preserving proper nouns and archaic phrasing."
+            ),
+        },
+        {
+            "role": "user",
+            "content": f"Translate the following text from {src_lang} to {target_lang}:\n{text}",
+        },
+    ]
     try:
-        result = translator(text, max_length=512)[0]["translation_text"]
-        return result
+        resp = openai_client.chat.completions.create(
+            model="gpt-4-turbo", messages=messages
+        )
+        return resp.choices[0].message.content.strip()
     except Exception as exc:  # pragma: no cover - runtime failure
         logger.warning("Translation failed: %s", exc)
         return text
