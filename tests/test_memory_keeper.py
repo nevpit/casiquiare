@@ -129,3 +129,14 @@ def test_geocode_place_fuzzy():
     assert coords == memory_tools.PLACE_DB["Santa Isabel"]
 
 
+def test_infer_relative_location_basic():
+    clue = memory_tools.DistanceClue(
+        ref_place="Santa Isabel", direction="north", distance=2, unit="days"
+    )
+    loc = memory_tools.infer_relative_location(clue)
+    assert loc is not None
+    base_lon, base_lat = memory_tools.PLACE_DB["Santa Isabel"]
+    expected_lat = base_lat + (2 * 22.5) / 111.0
+    assert abs(loc.lat - expected_lat) < 0.05
+
+

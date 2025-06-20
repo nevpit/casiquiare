@@ -177,6 +177,19 @@ class MemoryKeeper:
         )
         return results
 
+    def infer_relative_location(self, clue: "memory_tools.DistanceClue"):
+        from world_state import world_state, log_message
+
+        loc = memory_tools.infer_relative_location(clue)
+        if loc is not None:
+            world_state.setdefault("inferred_locations", []).append(asdict(loc))
+        log_message(
+            "memory",
+            "infer_relative_location",
+            asdict(loc) if loc else None,
+        )
+        return loc
+
     def geocode_place(self, name: str):
         from world_state import world_state, log_message
 

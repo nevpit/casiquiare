@@ -10,6 +10,7 @@ import re
 
 import os
 from hashlib import md5
+import math
 
 from log_config import setup_logger
 
@@ -47,6 +48,18 @@ class DistanceClue:
     unit: str
     doc_id: str = ""
     page: int = 0
+
+
+@dataclass
+class InferredLocation:
+    """Approximate coordinates derived from a :class:`DistanceClue`."""
+
+    lon: float
+    lat: float
+    ref_place: str
+    distance_km: float
+    direction: str
+    uncertainty_km: float
 
 try:
     import pytesseract
@@ -329,6 +342,36 @@ DIR_MAP = {
     "downstream": "downriver",
 }
 
+# Direction bearings in degrees
+BEARING_MAP = {
+    "north": 0.0,
+    "northeast": 45.0,
+    "east": 90.0,
+    "southeast": 135.0,
+    "south": 180.0,
+    "southwest": 225.0,
+    "west": 270.0,
+    "northwest": 315.0,
+    "upriver": 0.0,  # default assumption if river orientation unknown
+    "downriver": 180.0,
+}
+
+# Rough conversion from historical units to kilometers
+UNIT_KM = {
+    "km": 1.0,
+    "kilometer": 1.0,
+    "kilometers": 1.0,
+    "kilometros": 1.0,
+    "mile": 1.60934,
+    "miles": 1.60934,
+    "milla": 1.60934,
+    "millas": 1.60934,
+    "league": 5.0,
+    "leagues": 5.0,
+    "legua": 5.0,
+    "leguas": 5.0,
+}
+
 
 def _parse_number(text: str) -> float:
     text = text.replace(",", ".")
@@ -338,6 +381,16 @@ def _parse_number(text: str) -> float:
         except Exception:
             return 0.0
     return float(NUM_MAP.get(text.lower(), 0))
+
+
+def _convert_to_km(distance: float, unit: str) -> float:
+    """Return distance in kilometers for various units."""
+    unit = unit.lower().rstrip("s")
+    if "day" in unit or "dia" in unit:
+        # assume one day of canoe travel is roughly 22.5 km
+        return distance * 22.5
+    factor = UNIT_KM.get(unit, 0.0)
+    return distance * factor
 
 
 def parse_distance_clues(text: str) -> List[DistanceClue]:
@@ -366,6 +419,34 @@ def parse_distance_clues(text: str) -> List[DistanceClue]:
             )
         )
     return clues
+
+
+def infer_relative_location(clue: DistanceClue) -> Optional[InferredLocation]:
+    """Estimate coordinates from a :class:`DistanceClue`."""
+
+    base = geocode_place(clue.ref_place)
+    if base is None:
+        return None
+
+    lon, lat = base
+    dist_km = _convert_to_km(clue.distance, clue.unit)
+    bearing = BEARING_MAP.get(clue.direction.lower(), 0.0)
+    rad = math.radians(bearing)
+    km_per_deg_lat = 111.0
+    km_per_deg_lon = 111.0 * math.cos(math.radians(lat)) or 111.0
+
+    delta_lat = (dist_km * math.cos(rad)) / km_per_deg_lat
+    delta_lon = (dist_km * math.sin(rad)) / km_per_deg_lon
+    uncertainty = max(1.0, dist_km * 0.25)
+
+    return InferredLocation(
+        lon=lon + delta_lon,
+        lat=lat + delta_lat,
+        ref_place=clue.ref_place,
+        distance_km=dist_km,
+        direction=clue.direction,
+        uncertainty_km=uncertainty,
+    )
 
 
 def _compute_embedding(text: str) -> List[float]:
@@ -555,12 +636,14 @@ TOOLS: Dict[str, Any] = {
     "search_location": search_location,
     "parse_distance_clues": parse_distance_clues,
     "search_distance_clues": search_distance_clues,
+    "infer_relative_location": infer_relative_location,
 }
 
 __all__ = [
     "Excerpt",
     "Entity",
     "DistanceClue",
+    "InferredLocation",
     "ocr_text",
     "ocr_image",
     "translate_text",
@@ -574,5 +657,6 @@ __all__ = [
     "search_location",
     "parse_distance_clues",
     "search_distance_clues",
+    "infer_relative_location",
     "TOOLS",
 ]
