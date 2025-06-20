@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+from dataclasses import dataclass
 
 import os
 from hashlib import md5
@@ -12,6 +13,17 @@ from hashlib import md5
 from log_config import setup_logger
 
 logger = setup_logger("casiquiare.memory")
+
+
+@dataclass
+class Excerpt:
+    """Segment of text stored in the semantic index."""
+
+    doc_id: str
+    title: str
+    page: int
+    text: str
+    distance: float = 0.0
 
 try:
     import pytesseract
@@ -200,6 +212,7 @@ def index_documents(docs: List[Dict[str, Any]], chunk_size: int = 500) -> None:
                         "title": title,
                         "page": page,
                         "chunk": pi,
+                        "text": chunk,
                     }
                 )
     if not embeddings:
@@ -226,6 +239,29 @@ def semantic_search(query: str, top_k: int = 5) -> List[Dict[str, Any]]:
     return results
 
 
+def search_text(query: str, top_k: int = 5) -> List[Excerpt]:
+    """Return top matching text chunks for ``query`` using semantic search."""
+    if SEMANTIC_INDEX is None or faiss is None or np is None:
+        return []
+    vec = np.array(_compute_embedding(query), dtype="float32").reshape(1, -1)
+    distances, indices = SEMANTIC_INDEX.search(vec, top_k)
+    excerpts: List[Excerpt] = []
+    for idx, dist in zip(indices[0], distances[0]):
+        if idx < 0 or idx >= len(SEMANTIC_META):
+            continue
+        meta = SEMANTIC_META[idx]
+        excerpts.append(
+            Excerpt(
+                doc_id=meta.get("doc_id", ""),
+                title=meta.get("title", ""),
+                page=meta.get("page", 0),
+                text=meta.get("text", ""),
+                distance=float(dist),
+            )
+        )
+    return excerpts
+
+
 TOOLS: Dict[str, Any] = {
     "ocr_text": ocr_text,
     "ocr_image": ocr_image,
@@ -235,9 +271,11 @@ TOOLS: Dict[str, Any] = {
     "geocode_place": geocode_place,
     "index_documents": index_documents,
     "semantic_search": semantic_search,
+    "search_text": search_text,
 }
 
 __all__ = [
+    "Excerpt",
     "ocr_text",
     "ocr_image",
     "translate_text",
@@ -246,5 +284,6 @@ __all__ = [
     "geocode_place",
     "index_documents",
     "semantic_search",
+    "search_text",
     "TOOLS",
 ]

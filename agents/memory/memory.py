@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from typing import Any, Dict, Optional, Sequence
 
 from log_config import setup_logger
@@ -128,6 +128,18 @@ class MemoryKeeper:
         results = memory_tools.semantic_search(query, top_k=top_k)
         world_state["semantic_results"] = results
         log_message("memory", "semantic_search", results)
+        return results
+
+    def search_text(self, query: str, top_k: int = 5):
+        from world_state import world_state, log_message
+
+        results = memory_tools.search_text(query, top_k=top_k)
+        world_state["search_text_results"] = [asdict(r) for r in results]
+        log_message(
+            "memory",
+            "search_text",
+            [asdict(r) for r in results],
+        )
         return results
 
     def geocode_place(self, name: str):

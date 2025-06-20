@@ -58,3 +58,19 @@ def test_semantic_search_basic():
     if memory_tools.faiss is not None:
         assert results and results[0]["doc_id"] == "d1"
 
+
+def test_search_text_basic():
+    reset()
+    mk = MemoryKeeper()
+    docs = [
+        {
+            "id": "d1",
+            "title": "doc",
+            "text": "The Amazon river basin is vast. Many cultures lived here.",
+        }
+    ]
+    mk.index_documents(docs)
+    results = mk.search_text("Amazon basin")
+    if memory_tools.faiss is not None:
+        assert results and results[0].doc_id == "d1"
+
