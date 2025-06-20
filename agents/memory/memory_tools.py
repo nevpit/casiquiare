@@ -102,6 +102,7 @@ CORPUS: Dict[str, str] = {
 PLACE_DB: Dict[str, Tuple[float, float]] = {
     "Orinoco": (-67.0, 4.0),
     "Casiquiare": (-66.5, 1.8),
+    "Santa Isabel": (-65.0, 0.5),
 }
 
 # Semantic search index
@@ -201,8 +202,49 @@ def search_corpus(query: str) -> List[Dict[str, str]]:
 
 
 def geocode_place(name: str) -> Optional[Tuple[float, float]]:
-    """Return coordinates for a place name if known."""
-    return PLACE_DB.get(name)
+    """Return coordinates for a place name using fuzzy lookup and OSM."""
+
+    if not name:
+        return None
+
+    # 1) exact and fuzzy match against built-in gazetteer
+    normalized = name.lower().strip()
+    if normalized in {n.lower() for n in PLACE_DB}:
+        return PLACE_DB.get(next(k for k in PLACE_DB if k.lower() == normalized))
+
+    # simple similarity search using difflib
+    from difflib import SequenceMatcher
+
+    best_score = 0.0
+    best_coord: Optional[Tuple[float, float]] = None
+    for place, coord in PLACE_DB.items():
+        score = SequenceMatcher(None, normalized, place.lower()).ratio()
+        if score > best_score:
+            best_score = score
+            best_coord = coord
+    if best_score >= 0.8:
+        return best_coord
+
+    # 2) fall back to querying OpenStreetMap Nominatim
+    try:
+        import json
+        from urllib import request, parse
+
+        url = (
+            "https://nominatim.openstreetmap.org/search?" +
+            parse.urlencode({"q": name, "format": "json", "limit": 1})
+        )
+        req = request.Request(url, headers={"User-Agent": "casiquiare/1.0"})
+        with request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode())
+            if data:
+                lat = float(data[0]["lat"])
+                lon = float(data[0]["lon"])
+                return (lon, lat)
+    except Exception as exc:  # pragma: no cover - network failure
+        logger.warning("Geocoding API failed: %s", exc)
+
+    return None
 
 
 def extract_locations(text: str) -> List[Entity]:

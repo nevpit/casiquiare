@@ -123,3 +123,9 @@ def test_index_distance_clues():
     if clues:
         assert clues[0].doc_id == "d4"
 
+
+def test_geocode_place_fuzzy():
+    coords = memory_tools.geocode_place("Santa Isabela")
+    assert coords == memory_tools.PLACE_DB["Santa Isabel"]
+
+
