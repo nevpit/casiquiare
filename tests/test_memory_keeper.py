@@ -51,7 +51,13 @@ def test_semantic_search_basic():
     reset()
     mk = MemoryKeeper()
     docs = [
-        {"id": "d1", "title": "doc", "text": "The Amazon river basin is vast."}
+        {
+            "id": "d1",
+            "title": "doc",
+            "author": "Smith",
+            "date": "1920",
+            "text": "The Amazon river basin is vast."
+        }
     ]
     mk.index_documents(docs)
     results = mk.semantic_search("Amazon")
@@ -66,6 +72,8 @@ def test_search_text_basic():
         {
             "id": "d1",
             "title": "doc",
+            "author": "Smith",
+            "date": "1920",
             "text": "The Amazon river basin is vast. Many cultures lived here.",
         }
     ]
@@ -73,17 +81,25 @@ def test_search_text_basic():
     results = mk.search_text("Amazon basin")
     if memory_tools.faiss is not None:
         assert results and results[0].doc_id == "d1"
+        assert results[0].source
 
 
 def test_search_text_keyword():
     reset()
     mk = MemoryKeeper()
     docs = [
-        {"id": "d2", "title": "doc", "text": "The village of Yucuru sat by the river."}
+        {
+            "id": "d2",
+            "title": "doc",
+            "author": "Jones",
+            "date": "1905",
+            "text": "The village of Yucuru sat by the river."
+        }
     ]
     mk.index_documents(docs)
     results = mk.search_text("Yucuru")
     assert results and results[0].doc_id == "d2"
+    assert results[0].source
 
 
 def test_extract_locations_basic():
@@ -97,11 +113,18 @@ def test_search_location_basic():
     reset()
     mk = MemoryKeeper()
     docs = [
-        {"id": "d3", "title": "doc", "text": "The village of Yucuru sat by the river."}
+        {
+            "id": "d3",
+            "title": "doc",
+            "author": "Jones",
+            "date": "1905",
+            "text": "The village of Yucuru sat by the river."
+        }
     ]
     mk.index_documents(docs)
     results = mk.search_location("Yucuru")
     assert results and results[0].doc_id == "d3"
+    assert results[0].source
 
 
 def test_parse_distance_clues_basic():
@@ -116,12 +139,19 @@ def test_index_distance_clues():
     reset()
     mk = MemoryKeeper()
     docs = [
-        {"id": "d4", "title": "doc", "text": "two days upriver from Santa Isabel"}
+        {
+            "id": "d4",
+            "title": "doc",
+            "author": "Smith",
+            "date": "1920",
+            "text": "two days upriver from Santa Isabel"
+        }
     ]
     mk.index_documents(docs)
     clues = memory_tools.search_distance_clues("Santa Isabel")
     if clues:
         assert clues[0].doc_id == "d4"
+        assert clues[0].source
 
 
 def test_geocode_place_fuzzy():

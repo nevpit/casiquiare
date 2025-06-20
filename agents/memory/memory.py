@@ -66,6 +66,7 @@ class MemoryKeeper:
         lang = memory_tools.detect_language(text)
         world_state["last_text"] = text
         world_state["last_language"] = lang
+        world_state["last_source"] = path
         if lang in ("es", "pt"):
             text_en = memory_tools.translate_text(text, src_lang=lang)
             world_state["last_translation"] = text_en
@@ -74,7 +75,7 @@ class MemoryKeeper:
         log_message(
             "memory",
             "ocr_text",
-            {"text": text_en, "lang": lang},
+            {"text": text_en, "lang": lang, "source": path},
         )
         return text_en
 
@@ -85,6 +86,7 @@ class MemoryKeeper:
         lang = memory_tools.detect_language(text)
         world_state["last_text"] = text
         world_state["last_language"] = lang
+        world_state["last_source"] = "image"
         if lang in ("es", "pt"):
             text_en = memory_tools.translate_text(text, src_lang=lang)
             world_state["last_translation"] = text_en
@@ -93,19 +95,22 @@ class MemoryKeeper:
         log_message(
             "memory",
             "ocr_image",
-            {"text": text_en, "lang": lang},
+            {"text": text_en, "lang": lang, "source": "image"},
         )
         return text_en
 
     def translate_text(self, text: str, src_lang: str, target_lang: str = "en") -> str:
-        from world_state import log_message
+        from world_state import world_state, log_message
 
         result = memory_tools.translate_text(text, src_lang, target_lang)
-        log_message(
-            "memory",
-            "translate_text",
-            {"input": text, "output": result, "src": src_lang},
-        )
+        entry = {
+            "input": text,
+            "output": result,
+            "src": src_lang,
+            "source": world_state.get("last_source"),
+        }
+        world_state.setdefault("translations", []).append(entry)
+        log_message("memory", "translate_text", entry)
         return result
 
     def search_corpus(self, query: str):

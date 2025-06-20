@@ -26,6 +26,7 @@ class Excerpt:
     page: int
     text: str
     distance: float = 0.0
+    source: str = ""
 
 
 @dataclass
@@ -36,6 +37,10 @@ class Entity:
     label: str
     start: int
     end: int
+    doc_id: str = ""
+    title: str = ""
+    page: int = 0
+    source: str = ""
 
 
 @dataclass
@@ -48,6 +53,7 @@ class DistanceClue:
     unit: str
     doc_id: str = ""
     page: int = 0
+    source: str = ""
 
 
 @dataclass
@@ -60,6 +66,7 @@ class InferredLocation:
     distance_km: float
     direction: str
     uncertainty_km: float
+    source: str = ""
 
 try:
     import pytesseract
@@ -122,9 +129,24 @@ PLACE_DB: Dict[str, Tuple[float, float]] = {
 EMBED_DIM = 1536
 SEMANTIC_INDEX: Optional[Any] = None
 SEMANTIC_META: List[Dict[str, Any]] = []
+
 KEYWORD_INDEX: Dict[str, List[int]] = {}
 LOCATION_INDEX: Dict[str, List[int]] = {}
 DISTANCE_CLUES: List[DistanceClue] = []
+
+
+def make_citation(title: str = "", author: str = "", date: str = "", page: Optional[int] = None) -> str:
+    """Return a formatted citation string."""
+    parts = []
+    if title:
+        parts.append(title)
+    if author:
+        parts.append(author)
+    if date:
+        parts.append(str(date))
+    if page is not None and page != 0:
+        parts.append(f"p.{page}")
+    return ", ".join(parts)
 
 
 def ocr_text(path: str) -> str:
@@ -210,7 +232,7 @@ def search_corpus(query: str) -> List[Dict[str, str]]:
     results = []
     for doc_id, text in CORPUS.items():
         if query.lower() in text.lower():
-            results.append({"doc_id": doc_id, "snippet": text})
+            results.append({"doc_id": doc_id, "snippet": text, "citation": doc_id})
     return results
 
 
@@ -260,8 +282,15 @@ def geocode_place(name: str) -> Optional[Tuple[float, float]]:
     return None
 
 
-def extract_locations(text: str) -> List[Entity]:
-    """Return named locations found in ``text``."""
+def extract_locations(
+    text: str,
+    *,
+    doc_id: str = "",
+    title: str = "",
+    page: int = 0,
+    citation: str = "",
+) -> List[Entity]:
+    """Return named locations found in ``text`` with optional source info."""
     entities: List[Entity] = []
     if 'nlp' in globals() and nlp is not None:
         try:
@@ -274,6 +303,10 @@ def extract_locations(text: str) -> List[Entity]:
                             label=ent.label_,
                             start=ent.start_char,
                             end=ent.end_char,
+                            doc_id=doc_id,
+                            title=title,
+                            page=page,
+                            source=citation,
                         )
                     )
             return entities
@@ -288,6 +321,10 @@ def extract_locations(text: str) -> List[Entity]:
                 label="UNK",
                 start=match.start(1),
                 end=match.end(1),
+                doc_id=doc_id,
+                title=title,
+                page=page,
+                source=citation,
             )
         )
     return entities
@@ -446,6 +483,7 @@ def infer_relative_location(clue: DistanceClue) -> Optional[InferredLocation]:
         distance_km=dist_km,
         direction=clue.direction,
         uncertainty_km=uncertainty,
+        source=clue.source,
     )
 
 
@@ -480,6 +518,8 @@ def index_documents(docs: List[Dict[str, Any]], chunk_size: int = 500) -> None:
     for doc in docs:
         doc_id = doc.get("id")
         title = doc.get("title", "")
+        author = doc.get("author", "")
+        date = doc.get("date", "")
         text = doc.get("text", "")
         page = doc.get("page", 0)
         paragraphs = [p for p in text.split("\n\n") if p.strip()]
@@ -490,7 +530,8 @@ def index_documents(docs: List[Dict[str, Any]], chunk_size: int = 500) -> None:
                 if faiss is not None and np is not None:
                     emb = _compute_embedding(chunk)
                     embeddings.append(np.array(emb, dtype="float32"))
-                locs = extract_locations(chunk)
+                citation = make_citation(title, author, date, page)
+                locs = extract_locations(chunk, doc_id=doc_id or "", title=title, page=page, citation=citation)
                 clues = parse_distance_clues(chunk)
                 idx = len(metadata)
                 metadata.append(
@@ -502,6 +543,7 @@ def index_documents(docs: List[Dict[str, Any]], chunk_size: int = 500) -> None:
                         "text": chunk,
                         "locations": [l.text for l in locs],
                         "distance_clues": [asdict(c) for c in clues],
+                        "citation": citation,
                     }
                 )
                 for tok in set(re.findall(r"\w+", chunk.lower())):
@@ -517,6 +559,7 @@ def index_documents(docs: List[Dict[str, Any]], chunk_size: int = 500) -> None:
                             unit=c.unit,
                             doc_id=doc_id or "",
                             page=page,
+                            source=citation,
                         )
                     )
     if embeddings and faiss is not None and np is not None:
@@ -572,6 +615,7 @@ def search_text(query: str, top_k: int = 5) -> List[Excerpt]:
                 page=meta.get("page", 0),
                 text=meta.get("text", ""),
                 distance=0.0,
+                source=meta.get("citation", ""),
             )
         )
 
@@ -591,6 +635,7 @@ def search_text(query: str, top_k: int = 5) -> List[Excerpt]:
                     page=meta.get("page", 0),
                     text=meta.get("text", ""),
                     distance=float(dist),
+                    source=meta.get("citation", ""),
                 )
             )
 
@@ -612,6 +657,7 @@ def search_location(name: str) -> List[Excerpt]:
                     page=meta.get("page", 0),
                     text=meta.get("text", ""),
                     distance=0.0,
+                    source=meta.get("citation", ""),
                 )
             )
     return results
