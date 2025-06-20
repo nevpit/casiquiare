@@ -19,9 +19,11 @@ from world_state import world_state, log_message
 
 try:
     from openai import OpenAI
-    
+
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    openai = client
 except Exception:  # pragma: no cover - library may be missing
+    client = None
     openai = None
 
 
@@ -38,15 +40,15 @@ class Brain:
 
     def __post_init__(self) -> None:
         if openai is not None:
-        self.tools = brain_tools.TOOLS
-        self.system_prompt = (
-            "You are the Brain agent, a data engineer & ML modeler specializing in "
-            "archaeological site prediction. You rigorously analyze data, run code, "
-            "and return factual, reproducible results. Use tools for modeling, "
-            "statistics, and clustering – avoid speculation. Always respond with JSON "
-            "only, formatted as {\"agent\": \"brain\", \"type\": <type>, \"content\": <data>} "
-            "and wrap it in a single markdown block."
-        )
+            self.tools = brain_tools.TOOLS
+            self.system_prompt = (
+                "You are the Brain agent, a data engineer & ML modeler specializing in "
+                "archaeological site prediction. You rigorously analyze data, run code, "
+                "and return factual, reproducible results. Use tools for modeling, "
+                "statistics, and clustering – avoid speculation. Always respond with JSON "
+                "only, formatted as {\"agent\": \"brain\", \"type\": <type>, \"content\": <data>} "
+                "and wrap it in a single markdown block."
+            )
 
     def set_system_prompt(self, prompt: str) -> None:
         """Override the default system prompt."""
