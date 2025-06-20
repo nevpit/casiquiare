@@ -22,9 +22,14 @@ except Exception:  # pragma: no cover - optional dependency may be missing
     ImageDraw = None  # type: ignore
 
 try:
-    from googletrans import Translator  # type: ignore
+    from langdetect import detect
 except Exception:  # pragma: no cover - optional dependency may be missing
-    Translator = None  # type: ignore
+    detect = None  # type: ignore
+
+try:
+    from transformers import pipeline  # type: ignore
+except Exception:  # pragma: no cover - optional dependency may be missing
+    pipeline = None  # type: ignore
 
 try:
     from pdfminer.high_level import extract_text as pdf_extract_text  # type: ignore
@@ -83,14 +88,49 @@ def ocr_image(image: "Image.Image") -> str:
         return ""
 
 
-def translate_text(text: str, target_lang: str = "en") -> str:
-    """Translate text using googletrans if available."""
-    if Translator is None:
-        logger.info("googletrans not available; returning original text")
+def detect_language(text: str) -> Optional[str]:
+    """Detect the language of ``text`` using ``langdetect`` if available."""
+    if detect is None:
+        logger.info("langdetect not available")
+        return None
+    try:
+        return detect(text)
+    except Exception as exc:  # pragma: no cover - runtime failure
+        logger.warning("Language detection failed: %s", exc)
+        return None
+
+
+_TRANSLATORS: Dict[str, Any] = {}
+
+
+def _get_translator(src_lang: str):
+    if pipeline is None:
+        return None
+    model_map = {
+        "es": "Helsinki-NLP/opus-mt-es-en",
+        "pt": "Helsinki-NLP/opus-mt-pt-en",
+    }
+    model = model_map.get(src_lang)
+    if model is None:
+        return None
+    if src_lang not in _TRANSLATORS:
+        try:
+            _TRANSLATORS[src_lang] = pipeline("translation", model=model)
+        except Exception as exc:  # pragma: no cover - runtime failure
+            logger.warning("Failed to load translation model %s: %s", model, exc)
+            _TRANSLATORS[src_lang] = None
+    return _TRANSLATORS[src_lang]
+
+
+def translate_text(text: str, src_lang: str, target_lang: str = "en") -> str:
+    """Translate text using MarianMT models via ``transformers`` if available."""
+    translator = _get_translator(src_lang)
+    if translator is None:
+        logger.info("Translation model not available; returning original text")
         return text
     try:
-        translator = Translator()
-        return translator.translate(text, dest=target_lang).text
+        result = translator(text, max_length=512)[0]["translation_text"]
+        return result
     except Exception as exc:  # pragma: no cover - runtime failure
         logger.warning("Translation failed: %s", exc)
         return text
@@ -114,6 +154,7 @@ TOOLS: Dict[str, Any] = {
     "ocr_text": ocr_text,
     "ocr_image": ocr_image,
     "translate_text": translate_text,
+    "detect_language": detect_language,
     "search_corpus": search_corpus,
     "geocode_place": geocode_place,
 }
@@ -122,6 +163,7 @@ __all__ = [
     "ocr_text",
     "ocr_image",
     "translate_text",
+    "detect_language",
     "search_corpus",
     "geocode_place",
     "TOOLS",

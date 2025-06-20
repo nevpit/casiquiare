@@ -11,3 +11,5 @@ pytest
 scikit-learn
 xgboost
 Flask
+langdetect
+transformers[sentencepiece]

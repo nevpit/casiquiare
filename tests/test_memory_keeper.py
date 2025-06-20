@@ -37,4 +37,12 @@ def test_ocr_image_basic():
     draw.text((10, 10), "test", fill=0, font=font)
     text = mk.ocr_image(img)
     assert isinstance(text, str)
+    lang = world_state.get("last_language")
+    assert lang is not None
+
+
+def test_translate_text_basic():
+    mk = MemoryKeeper()
+    result = mk.translate_text("hola mundo", "es")
+    assert isinstance(result, str)
 
