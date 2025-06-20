@@ -203,6 +203,14 @@ class MemoryKeeper:
         log_message("memory", "geocode_place", {"place": name, "coords": coords})
         return coords
 
+    def summarize_clues(self, location_query: str, top_k: int = 5) -> str:
+        from world_state import world_state, log_message
+
+        summary = memory_tools.summarize_clues(location_query, top_k=top_k)
+        world_state.setdefault("summaries", {})[location_query] = summary
+        log_message("memory", "summarize_clues", summary)
+        return summary
+
     def get_results(self, key: Optional[str] = None) -> Any:
         """Return stored results from ``world_state``."""
         from world_state import world_state

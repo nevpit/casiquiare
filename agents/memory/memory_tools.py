@@ -668,6 +668,40 @@ def search_distance_clues(ref_place: str) -> List[DistanceClue]:
     return [c for c in DISTANCE_CLUES if c.ref_place.lower() == ref_place.lower()]
 
 
+def summarize_clues(location_query: str, top_k: int = 5) -> str:
+    """Return a short summary of historical clues about ``location_query``."""
+    excerpts = search_text(location_query, top_k=top_k)
+    clues = search_distance_clues(location_query)
+    lines: List[str] = []
+    for ex in excerpts:
+        snippet = ex.text.strip()
+        if len(snippet) > 120:
+            snippet = snippet[:117] + "..."
+        citation = ex.source or ex.title
+        lines.append(f"- {snippet} ({citation})")
+    for cl in clues:
+        lines.append(
+            f"- {cl.distance} {cl.unit} {cl.direction} from {cl.ref_place} ({cl.source})"
+        )
+    summary = "\n".join(lines[:top_k])
+    if openai_client is not None and summary:
+        messages = [
+            {"role": "system", "content": "Summarize historical clues with citations."},
+            {
+                "role": "user",
+                "content": f"Summarize the following notes about {location_query}:\n{summary}",
+            },
+        ]
+        try:
+            resp = openai_client.chat.completions.create(
+                model="gpt-4-turbo", messages=messages
+            )
+            return resp.choices[0].message.content.strip()
+        except Exception as exc:  # pragma: no cover - runtime failure
+            logger.warning("LLM summarization failed: %s", exc)
+    return summary
+
+
 TOOLS: Dict[str, Any] = {
     "ocr_text": ocr_text,
     "ocr_image": ocr_image,
@@ -683,6 +717,7 @@ TOOLS: Dict[str, Any] = {
     "parse_distance_clues": parse_distance_clues,
     "search_distance_clues": search_distance_clues,
     "infer_relative_location": infer_relative_location,
+    "summarize_clues": summarize_clues,
 }
 
 __all__ = [
@@ -704,5 +739,6 @@ __all__ = [
     "parse_distance_clues",
     "search_distance_clues",
     "infer_relative_location",
+    "summarize_clues",
     "TOOLS",
 ]

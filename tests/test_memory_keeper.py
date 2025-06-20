@@ -170,3 +170,21 @@ def test_infer_relative_location_basic():
     assert abs(loc.lat - expected_lat) < 0.05
 
 
+def test_summarize_clues_basic():
+    reset()
+    mk = MemoryKeeper()
+    docs = [
+        {
+            "id": "d5",
+            "title": "Journal",
+            "author": "Fawcett",
+            "date": "1920",
+            "text": "two days upriver from Santa Isabel there are earth mounds.",
+        }
+    ]
+    mk.index_documents(docs)
+    summary = mk.summarize_clues("Santa Isabel")
+    assert isinstance(summary, str)
+    assert "Fawcett" in summary or "Journal" in summary
+
+
