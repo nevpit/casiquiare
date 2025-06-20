@@ -11,3 +11,6 @@ pytest
 scikit-learn
 xgboost
 Flask
+langdetect
+faiss-cpu
+spacy
