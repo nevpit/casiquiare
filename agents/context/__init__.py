@@ -2,5 +2,5 @@
 
 from .context_engine import ContextEngine
 
-__all__ = ["ContextEngine"]
+__all__ = ["ContextEngine", "context_tools"]
 
