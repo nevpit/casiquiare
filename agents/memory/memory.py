@@ -188,6 +188,11 @@ class MemoryKeeper:
         loc = memory_tools.infer_relative_location(clue)
         if loc is not None:
             world_state.setdefault("inferred_locations", []).append(asdict(loc))
+            coord_key = f"{loc.lon:.4f},{loc.lat:.4f}"
+            summary = (
+                f"{clue.distance} {clue.unit} {clue.direction} from {clue.ref_place}"
+            )
+            world_state.setdefault("historical_clues", {})[coord_key] = summary
         log_message(
             "memory",
             "infer_relative_location",
@@ -200,6 +205,9 @@ class MemoryKeeper:
 
         coords = memory_tools.geocode_place(name)
         world_state.setdefault("geocodes", {})[name] = coords
+        if coords:
+            coord_key = f"{coords[0]:.4f},{coords[1]:.4f}"
+            world_state.setdefault("historical_clues", {})[coord_key] = name
         log_message("memory", "geocode_place", {"place": name, "coords": coords})
         return coords
 
@@ -208,6 +216,10 @@ class MemoryKeeper:
 
         summary = memory_tools.summarize_clues(location_query, top_k=top_k)
         world_state.setdefault("summaries", {})[location_query] = summary
+        coords = memory_tools.geocode_place(location_query)
+        if coords:
+            coord_key = f"{coords[0]:.4f},{coords[1]:.4f}"
+            world_state.setdefault("historical_clues", {})[coord_key] = summary
         log_message("memory", "summarize_clues", summary)
         return summary
 

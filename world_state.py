@@ -15,6 +15,7 @@ world_state: Dict[str, Any] = {
     "latest_prediction": None,
     "clusters": {},
     "messages": [],
+    "historical_clues": {},
 }
 
 
@@ -37,6 +38,7 @@ def reset() -> None:
             "latest_prediction": None,
             "clusters": {},
             "messages": [],
+            "historical_clues": {},
         }
     )
 

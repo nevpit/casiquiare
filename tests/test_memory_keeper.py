@@ -188,3 +188,27 @@ def test_summarize_clues_basic():
     assert "Fawcett" in summary or "Journal" in summary
 
 
+def test_historical_clues_update():
+    reset()
+    mk = MemoryKeeper()
+    docs = [
+        {
+            "id": "d6",
+            "title": "Diary",
+            "author": "Smith",
+            "date": "1930",
+            "text": "camp two days north of Santa Isabel",
+        }
+    ]
+    mk.index_documents(docs)
+    clue = memory_tools.DistanceClue(
+        ref_place="Santa Isabel", direction="north", distance=2, unit="days"
+    )
+    mk.infer_relative_location(clue)
+    summary = mk.summarize_clues("Santa Isabel")
+    coords = memory_tools.geocode_place("Santa Isabel")
+    if coords:
+        key = f"{coords[0]:.4f},{coords[1]:.4f}"
+        assert key in world_state.get("historical_clues", {})
+
+
