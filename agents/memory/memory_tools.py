@@ -12,15 +12,24 @@ logger = setup_logger("casiquiare.memory")
 
 try:
     import pytesseract
-    from PIL import Image
+    from PIL import Image, ImageEnhance, ImageOps, ImageFont, ImageDraw
 except Exception:  # pragma: no cover - optional dependency may be missing
     pytesseract = None  # type: ignore
     Image = None  # type: ignore
+    ImageEnhance = None  # type: ignore
+    ImageOps = None  # type: ignore
+    ImageFont = None  # type: ignore
+    ImageDraw = None  # type: ignore
 
 try:
     from googletrans import Translator  # type: ignore
 except Exception:  # pragma: no cover - optional dependency may be missing
     Translator = None  # type: ignore
+
+try:
+    from pdfminer.high_level import extract_text as pdf_extract_text  # type: ignore
+except Exception:  # pragma: no cover - optional dependency may be missing
+    pdf_extract_text = None  # type: ignore
 
 # Simple in-memory corpus used for demonstrations
 CORPUS: Dict[str, str] = {
@@ -36,13 +45,42 @@ PLACE_DB: Dict[str, Tuple[float, float]] = {
 
 
 def ocr_text(path: str) -> str:
-    """Extract text from an image or text file."""
+    """Extract text from an image, PDF, or text file."""
+    # Bypass OCR for PDFs with embedded text
+    suffix = Path(path).suffix.lower()
+    if suffix == ".pdf" and pdf_extract_text is not None:
+        try:
+            return pdf_extract_text(path)
+        except Exception as exc:  # pragma: no cover - runtime failure
+            logger.warning("PDF text extraction failed: %s", exc)
+
     if pytesseract is not None and Image is not None:
         try:
-            return pytesseract.image_to_string(Image.open(path))
+            return ocr_image(Image.open(path))
         except Exception as exc:  # pragma: no cover - runtime failure
             logger.warning("OCR failed: %s", exc)
+
     return Path(path).read_text(encoding="utf-8")
+
+
+def ocr_image(image: "Image.Image") -> str:
+    """Run OCR on a :class:`PIL.Image` with basic preprocessing."""
+    if pytesseract is None or Image is None:
+        return ""
+    try:
+        # Convert to grayscale and enhance contrast
+        gray = image.convert("L")
+        if ImageEnhance is not None:
+            enhancer = ImageEnhance.Contrast(gray)
+            gray = enhancer.enhance(2.0)
+        if ImageOps is not None:
+            gray = ImageOps.autocontrast(gray)
+            gray = ImageOps.invert(gray)
+            gray = gray.point(lambda x: 0 if x < 128 else 255, mode="1")
+        return pytesseract.image_to_string(gray)
+    except Exception as exc:  # pragma: no cover - runtime failure
+        logger.warning("OCR image failed: %s", exc)
+        return ""
 
 
 def translate_text(text: str, target_lang: str = "en") -> str:
@@ -74,9 +112,17 @@ def geocode_place(name: str) -> Optional[Tuple[float, float]]:
 
 TOOLS: Dict[str, Any] = {
     "ocr_text": ocr_text,
+    "ocr_image": ocr_image,
     "translate_text": translate_text,
     "search_corpus": search_corpus,
     "geocode_place": geocode_place,
 }
 
-__all__ = ["ocr_text", "translate_text", "search_corpus", "geocode_place", "TOOLS"]
+__all__ = [
+    "ocr_text",
+    "ocr_image",
+    "translate_text",
+    "search_corpus",
+    "geocode_place",
+    "TOOLS",
+]

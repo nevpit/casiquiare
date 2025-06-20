@@ -67,6 +67,14 @@ class MemoryKeeper:
         log_message("memory", "ocr_text", text)
         return text
 
+    def ocr_image(self, image: "memory_tools.Image.Image") -> str:
+        from world_state import world_state, log_message
+
+        text = memory_tools.ocr_image(image)
+        world_state["last_text"] = text
+        log_message("memory", "ocr_image", text)
+        return text
+
     def translate_text(self, text: str, target_lang: str = "en") -> str:
         from world_state import log_message
 
