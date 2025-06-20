@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 import re
 
 import os
@@ -35,6 +35,18 @@ class Entity:
     label: str
     start: int
     end: int
+
+
+@dataclass
+class DistanceClue:
+    """Distance and direction reference extracted from text."""
+
+    ref_place: str
+    direction: str
+    distance: float
+    unit: str
+    doc_id: str = ""
+    page: int = 0
 
 try:
     import pytesseract
@@ -98,6 +110,7 @@ SEMANTIC_INDEX: Optional[Any] = None
 SEMANTIC_META: List[Dict[str, Any]] = []
 KEYWORD_INDEX: Dict[str, List[int]] = {}
 LOCATION_INDEX: Dict[str, List[int]] = {}
+DISTANCE_CLUES: List[DistanceClue] = []
 
 
 def ocr_text(path: str) -> str:
@@ -225,6 +238,94 @@ def extract_locations(text: str) -> List[Entity]:
     return entities
 
 
+NUM_MAP = {
+    "one": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "seven": 7,
+    "eight": 8,
+    "nine": 9,
+    "ten": 10,
+    "uno": 1,
+    "dos": 2,
+    "tres": 3,
+    "cuatro": 4,
+    "cinco": 5,
+    "seis": 6,
+    "siete": 7,
+    "ocho": 8,
+    "nueve": 9,
+    "diez": 10,
+    "um": 1,
+    "dois": 2,
+    "tres": 3,
+    "quatro": 4,
+    "cinco": 5,
+    "seis": 6,
+    "sete": 7,
+    "oito": 8,
+    "nove": 9,
+    "dez": 10,
+}
+
+DIR_MAP = {
+    "norte": "north",
+    "sur": "south",
+    "este": "east",
+    "oeste": "west",
+    "noroeste": "northwest",
+    "nordeste": "northeast",
+    "sudeste": "southeast",
+    "sudoeste": "southwest",
+    "rio arriba": "upriver",
+    "rio abajo": "downriver",
+    "rio abaixo": "downriver",
+    "upstream": "upriver",
+    "downstream": "downriver",
+}
+
+
+def _parse_number(text: str) -> float:
+    text = text.replace(",", ".")
+    if text.isdigit() or re.match(r"\d+\.\d+", text):
+        try:
+            return float(text)
+        except Exception:
+            return 0.0
+    return float(NUM_MAP.get(text.lower(), 0))
+
+
+def parse_distance_clues(text: str) -> List[DistanceClue]:
+    """Extract distance and direction relationships from ``text``."""
+
+    clues: List[DistanceClue] = []
+
+    unit_pattern = r"(?:leagues?|leguas?|km|kilometers?|kilometros?|miles?|millas?|days?|dias?)"
+    dir_pattern = r"(?:north|south|east|west|northeast|northwest|southeast|southwest|upriver|downriver|upstream|downstream|norte|sur|este|oeste|noroeste|nordeste|sudeste|sudoeste|rio arriba|rio abaixo|rio abajo)"
+    num_pattern = r"(\d+(?:[.,]\d+)?|(?:" + "|".join(NUM_MAP.keys()) + "))"
+    pattern = re.compile(
+        rf"{num_pattern}\s*({unit_pattern})(?:\s+(?:journey|travel|viaje|de\s+viaje))?\s+({dir_pattern})\s+(?:of|from|de|del)\s+([A-Z][A-Za-z\u00C0-\u017F\s]+)"
+    )
+
+    for match in pattern.finditer(text):
+        num_str, unit, direction, place = match.groups()
+        distance = _parse_number(num_str)
+        unit = unit.lower()
+        direction_norm = DIR_MAP.get(direction.lower(), direction.lower())
+        clues.append(
+            DistanceClue(
+                ref_place=place.strip(),
+                direction=direction_norm,
+                distance=distance,
+                unit=unit,
+            )
+        )
+    return clues
+
+
 def _compute_embedding(text: str) -> List[float]:
     """Return an embedding vector for ``text``."""
     if openai_client is not None:
@@ -244,11 +345,12 @@ def _compute_embedding(text: str) -> List[float]:
 
 def index_documents(docs: List[Dict[str, Any]], chunk_size: int = 500) -> None:
     """Index documents for semantic and keyword search."""
-    global SEMANTIC_INDEX, SEMANTIC_META, KEYWORD_INDEX, LOCATION_INDEX
+    global SEMANTIC_INDEX, SEMANTIC_META, KEYWORD_INDEX, LOCATION_INDEX, DISTANCE_CLUES
     embeddings = []
     metadata = []
     KEYWORD_INDEX.clear()
     LOCATION_INDEX.clear()
+    DISTANCE_CLUES.clear()
     if faiss is None or np is None:
         logger.info("faiss or numpy missing; building keyword index only")
     
@@ -266,6 +368,7 @@ def index_documents(docs: List[Dict[str, Any]], chunk_size: int = 500) -> None:
                     emb = _compute_embedding(chunk)
                     embeddings.append(np.array(emb, dtype="float32"))
                 locs = extract_locations(chunk)
+                clues = parse_distance_clues(chunk)
                 idx = len(metadata)
                 metadata.append(
                     {
@@ -275,12 +378,24 @@ def index_documents(docs: List[Dict[str, Any]], chunk_size: int = 500) -> None:
                         "chunk": pi,
                         "text": chunk,
                         "locations": [l.text for l in locs],
+                        "distance_clues": [asdict(c) for c in clues],
                     }
                 )
                 for tok in set(re.findall(r"\w+", chunk.lower())):
                     KEYWORD_INDEX.setdefault(tok, []).append(idx)
                 for loc in locs:
                     LOCATION_INDEX.setdefault(loc.text.lower(), []).append(idx)
+                for c in clues:
+                    DISTANCE_CLUES.append(
+                        DistanceClue(
+                            ref_place=c.ref_place,
+                            direction=c.direction,
+                            distance=c.distance,
+                            unit=c.unit,
+                            doc_id=doc_id or "",
+                            page=page,
+                        )
+                    )
     if embeddings and faiss is not None and np is not None:
         index = faiss.IndexFlatL2(EMBED_DIM)
         index.add(np.vstack(embeddings))
@@ -379,6 +494,11 @@ def search_location(name: str) -> List[Excerpt]:
     return results
 
 
+def search_distance_clues(ref_place: str) -> List[DistanceClue]:
+    """Return stored distance clues referencing ``ref_place``."""
+    return [c for c in DISTANCE_CLUES if c.ref_place.lower() == ref_place.lower()]
+
+
 TOOLS: Dict[str, Any] = {
     "ocr_text": ocr_text,
     "ocr_image": ocr_image,
@@ -391,11 +511,14 @@ TOOLS: Dict[str, Any] = {
     "search_text": search_text,
     "extract_locations": extract_locations,
     "search_location": search_location,
+    "parse_distance_clues": parse_distance_clues,
+    "search_distance_clues": search_distance_clues,
 }
 
 __all__ = [
     "Excerpt",
     "Entity",
+    "DistanceClue",
     "ocr_text",
     "ocr_image",
     "translate_text",
@@ -407,5 +530,7 @@ __all__ = [
     "search_text",
     "extract_locations",
     "search_location",
+    "parse_distance_clues",
+    "search_distance_clues",
     "TOOLS",
 ]

@@ -103,3 +103,23 @@ def test_search_location_basic():
     results = mk.search_location("Yucuru")
     assert results and results[0].doc_id == "d3"
 
+
+def test_parse_distance_clues_basic():
+    text = "two days upriver from Santa Isabel"
+    clues = memory_tools.parse_distance_clues(text)
+    assert clues and clues[0].ref_place == "Santa Isabel"
+    assert clues[0].direction == "upriver"
+    assert clues[0].distance == 2
+
+
+def test_index_distance_clues():
+    reset()
+    mk = MemoryKeeper()
+    docs = [
+        {"id": "d4", "title": "doc", "text": "two days upriver from Santa Isabel"}
+    ]
+    mk.index_documents(docs)
+    clues = memory_tools.search_distance_clues("Santa Isabel")
+    if clues:
+        assert clues[0].doc_id == "d4"
+

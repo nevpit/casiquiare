@@ -165,6 +165,18 @@ class MemoryKeeper:
         )
         return results
 
+    def search_distance_clues(self, name: str):
+        from world_state import world_state, log_message
+
+        results = memory_tools.search_distance_clues(name)
+        world_state["distance_clues"] = [asdict(c) for c in results]
+        log_message(
+            "memory",
+            "search_distance_clues",
+            [asdict(c) for c in results],
+        )
+        return results
+
     def geocode_place(self, name: str):
         from world_state import world_state, log_message
 
