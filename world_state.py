@@ -8,6 +8,9 @@ from dataclasses import asdict
 from time import time
 
 from agents.brain.brain_outputs import AgentMessage
+from log_config import setup_logger
+
+logger = setup_logger("casiquiare.world_state")
 
 # Simple in-memory dictionary used by agents to exchange results.
 world_state: Dict[str, Any] = {
@@ -49,6 +52,10 @@ def log_message(agent: str, msg_type: str, content: Any) -> None:
     msgs: List[Dict[str, Any]] = world_state.setdefault("messages", [])
     msgs.append(asdict(msg))
     world_state["messages"] = msgs
+    try:
+        logger.info("%s:%s - %s", agent, msg_type, content)
+    except Exception:
+        pass
 
 
 __all__ = ["world_state", "set_value", "get_value", "reset", "log_message"]

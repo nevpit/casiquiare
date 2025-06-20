@@ -17,6 +17,18 @@ from log_config import setup_logger
 logger = setup_logger("casiquiare.memory")
 
 
+def log_action(func):
+    """Decorator to log entry and exit of a function."""
+
+    def wrapper(*args, **kwargs):
+        logger.info("%s called", func.__name__)
+        res = func(*args, **kwargs)
+        logger.info("%s returned", func.__name__)
+        return res
+
+    return wrapper
+
+
 @dataclass
 class Excerpt:
     """Segment of text stored in the semantic index."""
@@ -149,6 +161,7 @@ def make_citation(title: str = "", author: str = "", date: str = "", page: Optio
     return ", ".join(parts)
 
 
+@log_action
 def ocr_text(path: str) -> str:
     """Extract text from an image, PDF, or text file."""
     # Bypass OCR for PDFs with embedded text
@@ -168,6 +181,7 @@ def ocr_text(path: str) -> str:
     return Path(path).read_text(encoding="utf-8")
 
 
+@log_action
 def ocr_image(image: "Image.Image") -> str:
     """Run OCR on a :class:`PIL.Image` with basic preprocessing."""
     if pytesseract is None or Image is None:
@@ -188,6 +202,7 @@ def ocr_image(image: "Image.Image") -> str:
         return ""
 
 
+@log_action
 def detect_language(text: str) -> Optional[str]:
     """Detect the language of ``text`` using ``langdetect`` if available."""
     if detect is None:
@@ -200,6 +215,7 @@ def detect_language(text: str) -> Optional[str]:
         return None
 
 
+@log_action
 def translate_text(text: str, src_lang: str, target_lang: str = "en") -> str:
     """Translate text using an OpenAI model if available."""
     if openai_client is None:
@@ -227,6 +243,7 @@ def translate_text(text: str, src_lang: str, target_lang: str = "en") -> str:
         return text
 
 
+@log_action
 def search_corpus(query: str) -> List[Dict[str, str]]:
     """Return documents containing the query string."""
     results = []
@@ -236,6 +253,7 @@ def search_corpus(query: str) -> List[Dict[str, str]]:
     return results
 
 
+@log_action
 def geocode_place(name: str) -> Optional[Tuple[float, float]]:
     """Return coordinates for a place name using fuzzy lookup and OSM."""
 
@@ -282,6 +300,7 @@ def geocode_place(name: str) -> Optional[Tuple[float, float]]:
     return None
 
 
+@log_action
 def extract_locations(
     text: str,
     *,
@@ -430,6 +449,7 @@ def _convert_to_km(distance: float, unit: str) -> float:
     return distance * factor
 
 
+@log_action
 def parse_distance_clues(text: str) -> List[DistanceClue]:
     """Extract distance and direction relationships from ``text``."""
 
@@ -458,6 +478,7 @@ def parse_distance_clues(text: str) -> List[DistanceClue]:
     return clues
 
 
+@log_action
 def infer_relative_location(clue: DistanceClue) -> Optional[InferredLocation]:
     """Estimate coordinates from a :class:`DistanceClue`."""
 
@@ -571,6 +592,7 @@ def index_documents(docs: List[Dict[str, Any]], chunk_size: int = 500) -> None:
     SEMANTIC_META = metadata
 
 
+@log_action
 def semantic_search(query: str, top_k: int = 5) -> List[Dict[str, Any]]:
     """Search the semantic index for ``query`` and return metadata."""
     if SEMANTIC_INDEX is None or faiss is None or np is None:
@@ -587,6 +609,7 @@ def semantic_search(query: str, top_k: int = 5) -> List[Dict[str, Any]]:
     return results
 
 
+@log_action
 def _keyword_search(query: str) -> List[int]:
     """Return chunk indices containing all words from ``query``."""
     tokens = re.findall(r"\w+", query.lower())
@@ -600,6 +623,7 @@ def _keyword_search(query: str) -> List[int]:
     return sorted_indices
 
 
+@log_action
 def search_text(query: str, top_k: int = 5) -> List[Excerpt]:
     """Return top matching text chunks for ``query`` using semantic and keyword search."""
     kw_indices = _keyword_search(query)
@@ -643,6 +667,7 @@ def search_text(query: str, top_k: int = 5) -> List[Excerpt]:
     return results[:top_k]
 
 
+@log_action
 def search_location(name: str) -> List[Excerpt]:
     """Return text excerpts mentioning ``name`` based on NER tags."""
     indices = LOCATION_INDEX.get(name.lower(), [])
@@ -663,11 +688,13 @@ def search_location(name: str) -> List[Excerpt]:
     return results
 
 
+@log_action
 def search_distance_clues(ref_place: str) -> List[DistanceClue]:
     """Return stored distance clues referencing ``ref_place``."""
     return [c for c in DISTANCE_CLUES if c.ref_place.lower() == ref_place.lower()]
 
 
+@log_action
 def summarize_clues(location_query: str, top_k: int = 5) -> str:
     """Return a short summary of historical clues about ``location_query``."""
     excerpts = search_text(location_query, top_k=top_k)
