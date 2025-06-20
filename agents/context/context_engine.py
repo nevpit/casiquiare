@@ -30,6 +30,7 @@ class ContextEngine:
     def __post_init__(self) -> None:
         if client is not None:
             self.tools = context_tools.TOOLS
+
             self.system_prompt = (
                 "You are the Context Engine, an environmental and geo-archaeological "
                 "analyst. Use geospatial tools (e.g. analyze_satellite_image, "
