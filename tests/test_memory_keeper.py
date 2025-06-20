@@ -85,3 +85,21 @@ def test_search_text_keyword():
     results = mk.search_text("Yucuru")
     assert results and results[0].doc_id == "d2"
 
+
+def test_extract_locations_basic():
+    ents = memory_tools.extract_locations("The village of Yucuru sat by the river.")
+    assert isinstance(ents, list)
+    if ents:
+        assert any(e.text == "Yucuru" for e in ents)
+
+
+def test_search_location_basic():
+    reset()
+    mk = MemoryKeeper()
+    docs = [
+        {"id": "d3", "title": "doc", "text": "The village of Yucuru sat by the river."}
+    ]
+    mk.index_documents(docs)
+    results = mk.search_location("Yucuru")
+    assert results and results[0].doc_id == "d3"
+

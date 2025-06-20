@@ -26,6 +26,16 @@ class Excerpt:
     text: str
     distance: float = 0.0
 
+
+@dataclass
+class Entity:
+    """Named entity extracted from text."""
+
+    text: str
+    label: str
+    start: int
+    end: int
+
 try:
     import pytesseract
     from PIL import Image, ImageEnhance, ImageOps, ImageFont, ImageDraw
@@ -54,6 +64,16 @@ except Exception:  # pragma: no cover - optional dependency may be missing
     openai_client = None
 
 try:
+    import spacy
+    try:
+        nlp = spacy.load("xx_ent_wiki_sm")
+    except Exception:
+        nlp = None
+except Exception:  # pragma: no cover - optional dependency may be missing
+    spacy = None  # type: ignore
+    nlp = None
+
+try:
     import faiss
     import numpy as np
 except Exception:  # pragma: no cover - optional dependency may be missing
@@ -77,6 +97,7 @@ EMBED_DIM = 1536
 SEMANTIC_INDEX: Optional[Any] = None
 SEMANTIC_META: List[Dict[str, Any]] = []
 KEYWORD_INDEX: Dict[str, List[int]] = {}
+LOCATION_INDEX: Dict[str, List[int]] = {}
 
 
 def ocr_text(path: str) -> str:
@@ -171,6 +192,39 @@ def geocode_place(name: str) -> Optional[Tuple[float, float]]:
     return PLACE_DB.get(name)
 
 
+def extract_locations(text: str) -> List[Entity]:
+    """Return named locations found in ``text``."""
+    entities: List[Entity] = []
+    if 'nlp' in globals() and nlp is not None:
+        try:
+            doc = nlp(text)
+            for ent in doc.ents:
+                if ent.label_ in {"GPE", "LOC", "FAC", "ORG", "NORP"}:
+                    entities.append(
+                        Entity(
+                            text=ent.text,
+                            label=ent.label_,
+                            start=ent.start_char,
+                            end=ent.end_char,
+                        )
+                    )
+            return entities
+        except Exception as exc:  # pragma: no cover - runtime failure
+            logger.warning("spaCy NER failed: %s", exc)
+    # fallback simple regex for capitalized words
+    pattern = r"\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b"
+    for match in re.finditer(pattern, text):
+        entities.append(
+            Entity(
+                text=match.group(1),
+                label="UNK",
+                start=match.start(1),
+                end=match.end(1),
+            )
+        )
+    return entities
+
+
 def _compute_embedding(text: str) -> List[float]:
     """Return an embedding vector for ``text``."""
     if openai_client is not None:
@@ -190,10 +244,11 @@ def _compute_embedding(text: str) -> List[float]:
 
 def index_documents(docs: List[Dict[str, Any]], chunk_size: int = 500) -> None:
     """Index documents for semantic and keyword search."""
-    global SEMANTIC_INDEX, SEMANTIC_META, KEYWORD_INDEX
+    global SEMANTIC_INDEX, SEMANTIC_META, KEYWORD_INDEX, LOCATION_INDEX
     embeddings = []
     metadata = []
     KEYWORD_INDEX.clear()
+    LOCATION_INDEX.clear()
     if faiss is None or np is None:
         logger.info("faiss or numpy missing; building keyword index only")
     
@@ -210,6 +265,7 @@ def index_documents(docs: List[Dict[str, Any]], chunk_size: int = 500) -> None:
                 if faiss is not None and np is not None:
                     emb = _compute_embedding(chunk)
                     embeddings.append(np.array(emb, dtype="float32"))
+                locs = extract_locations(chunk)
                 idx = len(metadata)
                 metadata.append(
                     {
@@ -218,10 +274,13 @@ def index_documents(docs: List[Dict[str, Any]], chunk_size: int = 500) -> None:
                         "page": page,
                         "chunk": pi,
                         "text": chunk,
+                        "locations": [l.text for l in locs],
                     }
                 )
                 for tok in set(re.findall(r"\w+", chunk.lower())):
                     KEYWORD_INDEX.setdefault(tok, []).append(idx)
+                for loc in locs:
+                    LOCATION_INDEX.setdefault(loc.text.lower(), []).append(idx)
     if embeddings and faiss is not None and np is not None:
         index = faiss.IndexFlatL2(EMBED_DIM)
         index.add(np.vstack(embeddings))
@@ -301,6 +360,25 @@ def search_text(query: str, top_k: int = 5) -> List[Excerpt]:
     return results[:top_k]
 
 
+def search_location(name: str) -> List[Excerpt]:
+    """Return text excerpts mentioning ``name`` based on NER tags."""
+    indices = LOCATION_INDEX.get(name.lower(), [])
+    results: List[Excerpt] = []
+    for idx in indices:
+        if 0 <= idx < len(SEMANTIC_META):
+            meta = SEMANTIC_META[idx]
+            results.append(
+                Excerpt(
+                    doc_id=meta.get("doc_id", ""),
+                    title=meta.get("title", ""),
+                    page=meta.get("page", 0),
+                    text=meta.get("text", ""),
+                    distance=0.0,
+                )
+            )
+    return results
+
+
 TOOLS: Dict[str, Any] = {
     "ocr_text": ocr_text,
     "ocr_image": ocr_image,
@@ -311,10 +389,13 @@ TOOLS: Dict[str, Any] = {
     "index_documents": index_documents,
     "semantic_search": semantic_search,
     "search_text": search_text,
+    "extract_locations": extract_locations,
+    "search_location": search_location,
 }
 
 __all__ = [
     "Excerpt",
+    "Entity",
     "ocr_text",
     "ocr_image",
     "translate_text",
@@ -324,5 +405,7 @@ __all__ = [
     "index_documents",
     "semantic_search",
     "search_text",
+    "extract_locations",
+    "search_location",
     "TOOLS",
 ]

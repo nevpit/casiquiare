@@ -13,3 +13,4 @@ xgboost
 Flask
 langdetect
 faiss-cpu
+spacy

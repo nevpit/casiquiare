@@ -142,6 +142,29 @@ class MemoryKeeper:
         )
         return results
 
+    def extract_locations(self, text: str):
+        from world_state import log_message
+
+        ents = memory_tools.extract_locations(text)
+        log_message(
+            "memory",
+            "extract_locations",
+            [asdict(e) for e in ents],
+        )
+        return ents
+
+    def search_location(self, name: str):
+        from world_state import world_state, log_message
+
+        results = memory_tools.search_location(name)
+        world_state["location_results"] = [asdict(r) for r in results]
+        log_message(
+            "memory",
+            "search_location",
+            [asdict(r) for r in results],
+        )
+        return results
+
     def geocode_place(self, name: str):
         from world_state import world_state, log_message
 
