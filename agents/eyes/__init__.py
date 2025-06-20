@@ -9,9 +9,10 @@ from typing import Any, Dict, List, Tuple, Iterable, Optional
 from . import tools, cli
 
 try:
-    import openai  # pragma: no cover - optional
+    from openai import OpenAI
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))  # pragma: no cover - optional
 except Exception:  # pragma: no cover - library may be missing
-    openai = None
+    client = None
 
 
 @dataclass
@@ -22,9 +23,8 @@ class Eyes:
     tools: Dict[str, Any] = field(init=False, default_factory=dict)
 
     def __post_init__(self) -> None:
-        if openai is not None:
-            openai.api_key = os.getenv("OPENAI_API_KEY")
-        self.tools = tools.TOOLS
+        if client is not None:
+            self.tools = tools.TOOLS
 
     # Thin wrappers around utility functions ---------------------------------
 
@@ -106,7 +106,7 @@ class Eyes:
 
     def summarize(self, findings: str) -> str:
         """Generate a factual summary using an OpenAI model."""
-        if openai is None:
+        if client is None:
             raise RuntimeError("OpenAI SDK is not available.")
         messages = [
             {
@@ -119,7 +119,7 @@ class Eyes:
             },
             {"role": "user", "content": findings},
         ]
-        response = openai.ChatCompletion.create(model=self.model, messages=messages)
+        response = client.chat.completions.create(model=self.model, messages=messages)
         return response.choices[0].message.content.strip()
 
 

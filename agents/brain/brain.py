@@ -18,7 +18,9 @@ from .brain_outputs import (
 from world_state import world_state, log_message
 
 try:
-    import openai
+    from openai import OpenAI
+    
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 except Exception:  # pragma: no cover - library may be missing
     openai = None
 
@@ -36,7 +38,6 @@ class Brain:
 
     def __post_init__(self) -> None:
         if openai is not None:
-            openai.api_key = os.getenv("OPENAI_API_KEY")
         self.tools = brain_tools.TOOLS
         self.system_prompt = (
             "You are the Brain agent, a data engineer & ML modeler specializing in "
@@ -59,7 +60,7 @@ class Brain:
             {"role": "system", "content": self.system_prompt},
             {"role": "user", "content": query},
         ]
-        response = openai.ChatCompletion.create(model=self.model, messages=messages)
+        response = client.chat.completions.create(model=self.model, messages=messages)
         reply = response.choices[0].message.content.strip()
         log_message("brain", "chat", reply)
         return reply
