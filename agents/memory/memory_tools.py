@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import dataclass
+import re
 
 import os
 from hashlib import md5
@@ -75,6 +76,7 @@ PLACE_DB: Dict[str, Tuple[float, float]] = {
 EMBED_DIM = 1536
 SEMANTIC_INDEX: Optional[Any] = None
 SEMANTIC_META: List[Dict[str, Any]] = []
+KEYWORD_INDEX: Dict[str, List[int]] = {}
 
 
 def ocr_text(path: str) -> str:
@@ -187,13 +189,14 @@ def _compute_embedding(text: str) -> List[float]:
 
 
 def index_documents(docs: List[Dict[str, Any]], chunk_size: int = 500) -> None:
-    """Index documents for semantic search."""
-    global SEMANTIC_INDEX, SEMANTIC_META
-    if faiss is None or np is None:
-        logger.info("faiss or numpy missing; cannot build index")
-        return
+    """Index documents for semantic and keyword search."""
+    global SEMANTIC_INDEX, SEMANTIC_META, KEYWORD_INDEX
     embeddings = []
     metadata = []
+    KEYWORD_INDEX.clear()
+    if faiss is None or np is None:
+        logger.info("faiss or numpy missing; building keyword index only")
+    
     for doc in docs:
         doc_id = doc.get("id")
         title = doc.get("title", "")
@@ -204,8 +207,10 @@ def index_documents(docs: List[Dict[str, Any]], chunk_size: int = 500) -> None:
             words = para.split()
             for start in range(0, len(words), chunk_size):
                 chunk = " ".join(words[start : start + chunk_size])
-                emb = _compute_embedding(chunk)
-                embeddings.append(np.array(emb, dtype="float32"))
+                if faiss is not None and np is not None:
+                    emb = _compute_embedding(chunk)
+                    embeddings.append(np.array(emb, dtype="float32"))
+                idx = len(metadata)
                 metadata.append(
                     {
                         "doc_id": doc_id,
@@ -215,11 +220,14 @@ def index_documents(docs: List[Dict[str, Any]], chunk_size: int = 500) -> None:
                         "text": chunk,
                     }
                 )
-    if not embeddings:
-        return
-    index = faiss.IndexFlatL2(EMBED_DIM)
-    index.add(np.vstack(embeddings))
-    SEMANTIC_INDEX = index
+                for tok in set(re.findall(r"\w+", chunk.lower())):
+                    KEYWORD_INDEX.setdefault(tok, []).append(idx)
+    if embeddings and faiss is not None and np is not None:
+        index = faiss.IndexFlatL2(EMBED_DIM)
+        index.add(np.vstack(embeddings))
+        SEMANTIC_INDEX = index
+    else:
+        SEMANTIC_INDEX = None
     SEMANTIC_META = metadata
 
 
@@ -239,27 +247,58 @@ def semantic_search(query: str, top_k: int = 5) -> List[Dict[str, Any]]:
     return results
 
 
-def search_text(query: str, top_k: int = 5) -> List[Excerpt]:
-    """Return top matching text chunks for ``query`` using semantic search."""
-    if SEMANTIC_INDEX is None or faiss is None or np is None:
+def _keyword_search(query: str) -> List[int]:
+    """Return chunk indices containing all words from ``query``."""
+    tokens = re.findall(r"\w+", query.lower())
+    if not tokens:
         return []
-    vec = np.array(_compute_embedding(query), dtype="float32").reshape(1, -1)
-    distances, indices = SEMANTIC_INDEX.search(vec, top_k)
-    excerpts: List[Excerpt] = []
-    for idx, dist in zip(indices[0], distances[0]):
+    counts: Dict[int, int] = {}
+    for tok in tokens:
+        for idx in KEYWORD_INDEX.get(tok, []):
+            counts[idx] = counts.get(idx, 0) + 1
+    sorted_indices = [idx for idx, _ in sorted(counts.items(), key=lambda x: -x[1])]
+    return sorted_indices
+
+
+def search_text(query: str, top_k: int = 5) -> List[Excerpt]:
+    """Return top matching text chunks for ``query`` using semantic and keyword search."""
+    kw_indices = _keyword_search(query)
+    kw_excerpts: List[Excerpt] = []
+    for idx in kw_indices:
         if idx < 0 or idx >= len(SEMANTIC_META):
             continue
         meta = SEMANTIC_META[idx]
-        excerpts.append(
+        kw_excerpts.append(
             Excerpt(
                 doc_id=meta.get("doc_id", ""),
                 title=meta.get("title", ""),
                 page=meta.get("page", 0),
                 text=meta.get("text", ""),
-                distance=float(dist),
+                distance=0.0,
             )
         )
-    return excerpts
+
+    sem_excerpts: List[Excerpt] = []
+    if SEMANTIC_INDEX is not None and faiss is not None and np is not None:
+        vec = np.array(_compute_embedding(query), dtype="float32").reshape(1, -1)
+        distances, indices = SEMANTIC_INDEX.search(vec, top_k)
+        seen = set(kw_indices)
+        for idx, dist in zip(indices[0], distances[0]):
+            if idx < 0 or idx >= len(SEMANTIC_META) or idx in seen:
+                continue
+            meta = SEMANTIC_META[idx]
+            sem_excerpts.append(
+                Excerpt(
+                    doc_id=meta.get("doc_id", ""),
+                    title=meta.get("title", ""),
+                    page=meta.get("page", 0),
+                    text=meta.get("text", ""),
+                    distance=float(dist),
+                )
+            )
+
+    results = kw_excerpts + sem_excerpts
+    return results[:top_k]
 
 
 TOOLS: Dict[str, Any] = {

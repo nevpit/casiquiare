@@ -74,3 +74,14 @@ def test_search_text_basic():
     if memory_tools.faiss is not None:
         assert results and results[0].doc_id == "d1"
 
+
+def test_search_text_keyword():
+    reset()
+    mk = MemoryKeeper()
+    docs = [
+        {"id": "d2", "title": "doc", "text": "The village of Yucuru sat by the river."}
+    ]
+    mk.index_documents(docs)
+    results = mk.search_text("Yucuru")
+    assert results and results[0].doc_id == "d2"
+
