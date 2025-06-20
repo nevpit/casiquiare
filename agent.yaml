@@ -146,3 +146,44 @@ tools:
             default: 5
         required:
           - code
+  - type: python
+    function:
+      name: analyze_environment
+      description: Retrieve environmental context metrics for a coordinate.
+      entrypoint: agents.context.context_engine:analyze_environment
+      parameters:
+        type: object
+        properties:
+          dem:
+            type: string
+            description: Path to a DEM GeoTIFF.
+          land_cover:
+            type: string
+            description: Path to land-cover data.
+          soil:
+            type: string
+            description: Path to soil data.
+          distance:
+            type: string
+            description: Path to distance-to-water data.
+          climate:
+            type: string
+            description: Path to climate raster.
+          context_layers:
+            type: object
+            description: Mapping of layer name to vector file path.
+            default: {}
+          lat:
+            type: number
+            description: Latitude in decimal degrees.
+          lon:
+            type: number
+            description: Longitude in decimal degrees.
+        required:
+          - dem
+          - land_cover
+          - soil
+          - distance
+          - climate
+          - lat
+          - lon
