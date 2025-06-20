@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import os
+from hashlib import md5
 
 from log_config import setup_logger
 
@@ -39,6 +40,13 @@ try:
 except Exception:  # pragma: no cover - optional dependency may be missing
     openai_client = None
 
+try:
+    import faiss
+    import numpy as np
+except Exception:  # pragma: no cover - optional dependency may be missing
+    faiss = None  # type: ignore
+    np = None  # type: ignore
+
 # Simple in-memory corpus used for demonstrations
 CORPUS: Dict[str, str] = {
     "doc1": "The Orinoco river was a vital route for many communities.",
@@ -50,6 +58,11 @@ PLACE_DB: Dict[str, Tuple[float, float]] = {
     "Orinoco": (-67.0, 4.0),
     "Casiquiare": (-66.5, 1.8),
 }
+
+# Semantic search index
+EMBED_DIM = 1536
+SEMANTIC_INDEX: Optional[Any] = None
+SEMANTIC_META: List[Dict[str, Any]] = []
 
 
 def ocr_text(path: str) -> str:
@@ -144,6 +157,75 @@ def geocode_place(name: str) -> Optional[Tuple[float, float]]:
     return PLACE_DB.get(name)
 
 
+def _compute_embedding(text: str) -> List[float]:
+    """Return an embedding vector for ``text``."""
+    if openai_client is not None:
+        try:
+            resp = openai_client.embeddings.create(
+                model="text-embedding-ada-002", input=text
+            )
+            return list(resp.data[0].embedding)
+        except Exception as exc:  # pragma: no cover - runtime failure
+            logger.warning("Embedding failed: %s", exc)
+    # deterministic fallback embedding
+    h = md5(text.encode("utf-8")).digest()
+    base = [(b / 255.0) for b in h]
+    vec = base * (EMBED_DIM // len(base)) + base[: EMBED_DIM % len(base)]
+    return vec
+
+
+def index_documents(docs: List[Dict[str, Any]], chunk_size: int = 500) -> None:
+    """Index documents for semantic search."""
+    global SEMANTIC_INDEX, SEMANTIC_META
+    if faiss is None or np is None:
+        logger.info("faiss or numpy missing; cannot build index")
+        return
+    embeddings = []
+    metadata = []
+    for doc in docs:
+        doc_id = doc.get("id")
+        title = doc.get("title", "")
+        text = doc.get("text", "")
+        page = doc.get("page", 0)
+        paragraphs = [p for p in text.split("\n\n") if p.strip()]
+        for pi, para in enumerate(paragraphs):
+            words = para.split()
+            for start in range(0, len(words), chunk_size):
+                chunk = " ".join(words[start : start + chunk_size])
+                emb = _compute_embedding(chunk)
+                embeddings.append(np.array(emb, dtype="float32"))
+                metadata.append(
+                    {
+                        "doc_id": doc_id,
+                        "title": title,
+                        "page": page,
+                        "chunk": pi,
+                    }
+                )
+    if not embeddings:
+        return
+    index = faiss.IndexFlatL2(EMBED_DIM)
+    index.add(np.vstack(embeddings))
+    SEMANTIC_INDEX = index
+    SEMANTIC_META = metadata
+
+
+def semantic_search(query: str, top_k: int = 5) -> List[Dict[str, Any]]:
+    """Search the semantic index for ``query`` and return metadata."""
+    if SEMANTIC_INDEX is None or faiss is None or np is None:
+        return []
+    vec = np.array(_compute_embedding(query), dtype="float32").reshape(1, -1)
+    distances, indices = SEMANTIC_INDEX.search(vec, top_k)
+    results = []
+    for idx, dist in zip(indices[0], distances[0]):
+        if idx < 0 or idx >= len(SEMANTIC_META):
+            continue
+        meta = dict(SEMANTIC_META[idx])
+        meta["distance"] = float(dist)
+        results.append(meta)
+    return results
+
+
 TOOLS: Dict[str, Any] = {
     "ocr_text": ocr_text,
     "ocr_image": ocr_image,
@@ -151,6 +233,8 @@ TOOLS: Dict[str, Any] = {
     "detect_language": detect_language,
     "search_corpus": search_corpus,
     "geocode_place": geocode_place,
+    "index_documents": index_documents,
+    "semantic_search": semantic_search,
 }
 
 __all__ = [
@@ -160,5 +244,7 @@ __all__ = [
     "detect_language",
     "search_corpus",
     "geocode_place",
+    "index_documents",
+    "semantic_search",
     "TOOLS",
 ]

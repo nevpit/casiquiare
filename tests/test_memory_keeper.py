@@ -46,3 +46,15 @@ def test_translate_text_basic():
     result = mk.translate_text("hola mundo", "es")
     assert isinstance(result, str)
 
+
+def test_semantic_search_basic():
+    reset()
+    mk = MemoryKeeper()
+    docs = [
+        {"id": "d1", "title": "doc", "text": "The Amazon river basin is vast."}
+    ]
+    mk.index_documents(docs)
+    results = mk.semantic_search("Amazon")
+    if memory_tools.faiss is not None:
+        assert results and results[0]["doc_id"] == "d1"
+

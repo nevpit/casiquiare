@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Sequence
 
 from log_config import setup_logger
 
@@ -114,6 +114,20 @@ class MemoryKeeper:
         results = memory_tools.search_corpus(query)
         world_state["search_results"] = results
         log_message("memory", "search_corpus", results)
+        return results
+
+    def index_documents(self, docs: "Sequence[Dict[str, Any]]") -> None:
+        from world_state import log_message
+
+        memory_tools.index_documents(docs)
+        log_message("memory", "index_documents", {"count": len(docs)})
+
+    def semantic_search(self, query: str, top_k: int = 5):
+        from world_state import world_state, log_message
+
+        results = memory_tools.semantic_search(query, top_k=top_k)
+        world_state["semantic_results"] = results
+        log_message("memory", "semantic_search", results)
         return results
 
     def geocode_place(self, name: str):

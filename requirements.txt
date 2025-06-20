@@ -12,3 +12,4 @@ scikit-learn
 xgboost
 Flask
 langdetect
+faiss-cpu
