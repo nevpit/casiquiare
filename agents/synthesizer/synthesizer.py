@@ -166,7 +166,7 @@ class Synthesizer:
             )
         return specs
 
-    def plan_and_act(self, goal: str, *, max_steps: int = 3) -> str:
+    def plan_and_act(self, goal: str, *, max_steps: int = 6) -> str:
         """Use LLM function calling to plan and execute tools."""
 
         if client is None:
