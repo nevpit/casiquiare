@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any, Dict, List, get_origin
 import inspect
 import json
 
@@ -133,10 +133,18 @@ class Synthesizer:
                 sig = inspect.signature(func)
                 for p_name, param in sig.parameters.items():
                     p_type = "string"
-                    if param.annotation in (int, float, bool):
-                        p_type = "integer" if param.annotation is int else (
-                            "number" if param.annotation is float else "boolean"
+                    ann = param.annotation
+                    origin = get_origin(ann)
+                    if origin is not None:
+                        ann = origin
+                    if ann in (int, float, bool):
+                        p_type = (
+                            "integer" if ann is int else ("number" if ann is float else "boolean")
                         )
+                    elif ann is list:
+                        p_type = "array"
+                    elif ann is dict:
+                        p_type = "object"
                     params[p_name] = {"type": p_type}
                     if param.default is inspect._empty:
                         required.append(p_name)
