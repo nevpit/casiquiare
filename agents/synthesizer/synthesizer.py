@@ -239,7 +239,11 @@ class Synthesizer:
             log_message("synthesizer", "final_output", answer)
             return answer
 
-        return ""
+        timeout = json.dumps({"status": "incomplete", "reason": "max_steps_exceeded"})
+        set_value("synth_answer", timeout)
+        log_message("synthesizer", "conclusion", timeout)
+        log_message("synthesizer", "final_output", timeout)
+        return timeout
 
 
 __all__ = ["Synthesizer"]
