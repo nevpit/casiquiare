@@ -195,8 +195,10 @@ def test_end_to_end_workflow(monkeypatch):
         set_value("search_results", [query])
         return [query]
 
-    def stub_context(dem, land_cover, soil, distance, climate, context_layers, lat, lon):
-        set_value("context_env", {"ndvi": 0.5})
+    def stub_context(
+        dem, land_cover, soil, distance, climate, context_layers, lat, lon
+    ):
+        set_value("context_environment", {"ndvi": 0.5})
         return {"ndvi": 0.5}
 
     syn.tools = {
@@ -212,6 +214,6 @@ def test_end_to_end_workflow(monkeypatch):
     assert get_value("eyes_result")
     assert get_value("clusters")
     assert get_value("search_results")
-    assert get_value("context_env")
+    assert get_value("context_environment")
     msgs = world_state.get("messages", [])
     assert any(m["type"] == "final_output" for m in msgs)
