@@ -36,7 +36,9 @@ class MemoryKeeper:
                 "You are the Memory Keeper, an AI ethno-historian and archivist. "
                 "You curate historical documents with meticulous citations and "
                 "handle sensitive cultural knowledge with care. Answer factually "
-                "and cite sources when available."
+                "and cite sources when available. Always respond with a JSON "
+                "object in the form {\"agent\": \"memory\", \"type\": <type>, "
+                "\"content\": <data>} wrapped in a single markdown block."
             )
         logger.info("MemoryKeeper initialized with tools: %s", list(self.tools))
 

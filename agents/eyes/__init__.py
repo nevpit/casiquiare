@@ -21,10 +21,37 @@ class Eyes:
 
     model: str = "gpt-4-turbo"
     tools: Dict[str, Any] = field(init=False, default_factory=dict)
+    system_prompt: str = field(init=False, default="")
 
     def __post_init__(self) -> None:
         if client is not None:
             self.tools = tools.TOOLS
+            self.system_prompt = (
+                "You are the Eyes agent, a remote-sensing specialist analyzing "
+                "imagery and LiDAR data. Provide factual observations and avoid "
+                "speculation. Always respond with a JSON object in the form "
+                "{\"agent\": \"eyes\", \"type\": <type>, \"content\": <data>} "
+                "wrapped in a single markdown block."
+            )
+
+    def set_system_prompt(self, prompt: str) -> None:
+        """Override the default system prompt."""
+        self.system_prompt = prompt
+
+    def ask(self, query: str) -> str:
+        """Query the language model using the Eyes persona."""
+        if client is None:
+            raise RuntimeError("OpenAI SDK is not available.")
+        messages = [
+            {"role": "system", "content": self.system_prompt},
+            {"role": "user", "content": query},
+        ]
+        response = client.chat.completions.create(model=self.model, messages=messages)
+        reply = response.choices[0].message.content.strip()
+        from world_state import log_message
+
+        log_message("eyes", "chat", reply)
+        return reply
 
     # Thin wrappers around utility functions ---------------------------------
 
@@ -105,22 +132,10 @@ class Eyes:
     # -----------------------------------------------------------------------
 
     def summarize(self, findings: str) -> str:
-        """Generate a factual summary using an OpenAI model."""
+        """Generate a factual summary of given findings."""
         if client is None:
             raise RuntimeError("OpenAI SDK is not available.")
-        messages = [
-            {
-                "role": "system",
-                "content": (
-                    "You are the Eyes agent, an analytical assistant that "
-                    "provides factual observations from remote sensing data. "
-                    "Do not speculate or provide interpretations."
-                ),
-            },
-            {"role": "user", "content": findings},
-        ]
-        response = client.chat.completions.create(model=self.model, messages=messages)
-        return response.choices[0].message.content.strip()
+        return self.ask(f"Summarize these findings:\n{findings}")
 
 
 # re-export tools module for convenience
