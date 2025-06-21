@@ -156,10 +156,6 @@ def sample_elevation_batch(path: str, coords: "list[tuple[float, float]]") -> "l
     return results
 
 
-TOOLS: Dict[str, Any] = {
-    "sample_elevation": sample_elevation,
-    "sample_elevation_batch": sample_elevation_batch,
-}
 
 
 def land_cover_class(path: str, lat: float, lon: float) -> Dict[str, Any]:
@@ -211,7 +207,6 @@ LAND_COVER_CODES = {
     4: "water",
 }
 
-TOOLS["land_cover_class"] = land_cover_class
 
 
 def soil_properties(path: str, lat: float, lon: float) -> Dict[str, Any]:
@@ -262,7 +257,6 @@ SOIL_CODES = {
     3: {"name": "ultisol", "fertility": "moderate", "terra_preta": False},
 }
 
-TOOLS["soil_properties"] = soil_properties
 
 def distance_to_water(path: str, lat: float, lon: float) -> Dict[str, Any]:
     """Return distance in meters to nearest water body for a coordinate."""
@@ -301,7 +295,6 @@ def distance_to_water(path: str, lat: float, lon: float) -> Dict[str, Any]:
     return result
 
 
-TOOLS["distance_to_water"] = distance_to_water
 
 def climate_variables(path: str, lat: float, lon: float) -> Dict[str, Any]:
     """Return climate variables (precipitation, temperature) for a coordinate."""
@@ -330,7 +323,6 @@ def climate_variables(path: str, lat: float, lon: float) -> Dict[str, Any]:
     return result
 
 
-TOOLS["climate_variables"] = climate_variables
 
 
 def check_context_layers(layers: Dict[str, str], lat: float, lon: float) -> Dict[str, bool]:
@@ -356,7 +348,6 @@ def check_context_layers(layers: Dict[str, str], lat: float, lon: float) -> Dict
     return results
 
 
-TOOLS["check_context_layers"] = check_context_layers
 
 
 def environment_summary(
@@ -426,7 +417,6 @@ def environment_summary(
     return summary
 
 
-TOOLS["environment_summary"] = environment_summary
 
 
 def _historical_clue_note(lat: float, lon: float, summary: Dict[str, Any]) -> str:
@@ -526,7 +516,18 @@ def generate_context_summary(
     logger.info("generate_context_summary result: %s", narrative)
     return narrative
 
-TOOLS["generate_context_summary"] = generate_context_summary
+
+TOOLS: Dict[str, Any] = {
+    "sample_elevation": sample_elevation,
+    "sample_elevation_batch": sample_elevation_batch,
+    "land_cover_class": land_cover_class,
+    "soil_properties": soil_properties,
+    "distance_to_water": distance_to_water,
+    "climate_variables": climate_variables,
+    "check_context_layers": check_context_layers,
+    "environment_summary": environment_summary,
+    "generate_context_summary": generate_context_summary,
+}
 
 
 __all__ = [
