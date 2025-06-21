@@ -26,7 +26,7 @@ def test_environment_summary_updates_state():
     messages = world_state.get("messages", [])
     assert messages
     last = messages[-1]
-    assert last["agent"] == "Context Engine"
+    assert last["agent"] == "context"
     assert last["type"] == "analysis"
 
 
