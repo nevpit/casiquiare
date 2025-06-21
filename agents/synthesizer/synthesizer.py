@@ -9,7 +9,7 @@ import inspect
 import json
 
 from log_config import setup_logger
-from agents.eyes import Eyes, tools as eyes_tools
+from agents.eyes import Eyes, eyes_tools as eyes_tools
 from agents.brain import Brain
 from agents.memory import MemoryKeeper
 from agents.context import ContextEngine

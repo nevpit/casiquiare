@@ -15,7 +15,7 @@ def test_tool_registration():
     assert syn.tools["brain_train_model"].__self__ is syn.brain
     assert "brain_exec_code" in syn.tools
     assert "eyes_scan_area" in syn.tools
-    from agents.eyes import tools as eyes_tools
+    from agents.eyes import eyes_tools as eyes_tools
     assert syn.tools["eyes_scan_area"] is eyes_tools.scan_area
 
 
