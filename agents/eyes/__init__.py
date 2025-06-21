@@ -21,10 +21,22 @@ class Eyes:
 
     model: str = "gpt-4-turbo"
     tools: Dict[str, Any] = field(init=False, default_factory=dict)
+    system_prompt: str = field(init=False, default="")
 
     def __post_init__(self) -> None:
         if client is not None:
             self.tools = tools.TOOLS
+            self.system_prompt = (
+                "You are the Eyes agent, an analytical assistant that provides "
+                "factual observations from remote sensing data. Do not "
+                "speculate or interpret. Always respond with JSON formatted as "
+                "{\\\"agent\\\": \\\"eyes\\\", \\\"type\\\": <type>, "
+                "\\\"content\\\": <data>} inside a single markdown block."
+            )
+
+    def set_system_prompt(self, prompt: str) -> None:
+        """Override the default system prompt."""
+        self.system_prompt = prompt
 
     # Thin wrappers around utility functions ---------------------------------
 
@@ -109,14 +121,7 @@ class Eyes:
         if client is None:
             raise RuntimeError("OpenAI SDK is not available.")
         messages = [
-            {
-                "role": "system",
-                "content": (
-                    "You are the Eyes agent, an analytical assistant that "
-                    "provides factual observations from remote sensing data. "
-                    "Do not speculate or provide interpretations."
-                ),
-            },
+            {"role": "system", "content": self.system_prompt},
             {"role": "user", "content": findings},
         ]
         response = client.chat.completions.create(model=self.model, messages=messages)
