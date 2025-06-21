@@ -70,6 +70,7 @@ class Synthesizer:
             "brain_score_likelihood": self.brain.score_likelihood,
             "brain_validate_features": self.brain.validate_features,
             "brain_cluster_features": self.brain.cluster_features,
+            "brain_exec_code": self.brain.exec_code,
             # Memory Keeper tools
             "memory_search_corpus": self.memory_keeper.search_corpus,
             "memory_semantic_search": self.memory_keeper.semantic_search,
