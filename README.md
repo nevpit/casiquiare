@@ -9,6 +9,15 @@ detection. They are callable directly or via `Eyes.tools` and wrapped as
 methods on the `Eyes` agent. The shape detection logic now resides in the
 `detection` package and is re-exported for convenience.
 
+The agent is instructed with a system prompt defining its persona as the
+Remote-Sensing & GIS Lead. Any natural-language summary returned by the Eyes
+agent is formatted as JSON:
+
+```json
+{"agent": "eyes", "type": "summary", "content": "<text>"}
+```
+and the JSON is wrapped inside a single markdown block.
+
 New tools focus on identifying vegetation or soil anomalies with Sentinel-2
 multi-spectral imagery. The helper `io_utils.raster.load_raster` loads these rasters
 with their coordinate metadata intact for downstream analysis. `analyze_satellite_image`
