@@ -154,7 +154,7 @@ class ContextEngine:
             elevation, land_cover, soil, distance, climate, context_layers
         )
         set_value("context_environment", result)
-        log_message("Context Engine", "analysis", result)
+        log_message("context", "analysis", result)
         return result
 
     def generate_context_summary(
