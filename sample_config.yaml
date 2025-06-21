@@ -22,3 +22,7 @@ output:
 
 concurrency:
   max_workers: 4              # used by scan_tiles_concurrent
+
+milvus:
+  host: localhost            # Milvus server host
+  port: 19530                # Milvus server port

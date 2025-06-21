@@ -215,3 +215,21 @@ from agents.brain import brain_tools
 
 info = brain_tools.train_model(df, model_type="xgboost", n_estimators=200)
 ```
+
+## Milvus vector database connection
+
+The project can optionally connect to a self-hosted Milvus instance using the
+``pymilvus`` client. Connection parameters are read from the ``MILVUS_HOST`` and
+``MILVUS_PORT`` environment variables and default to ``localhost`` and
+``19530`` respectively. The helper :func:`connect_milvus` in ``milvus_client``
+establishes the connection:
+
+```python
+from milvus_client import connect_milvus
+
+conn = connect_milvus()  # uses environment variables if provided
+```
+
+The Flask backend automatically attempts this connection when
+``create_app`` is called, storing the handle under ``app.extensions['milvus_conn']``.
+

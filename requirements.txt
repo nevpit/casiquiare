@@ -14,3 +14,4 @@ Flask
 langdetect
 faiss-cpu
 spacy
+pymilvus
