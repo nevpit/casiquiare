@@ -212,3 +212,65 @@ def test_historical_clues_update():
         assert key in world_state.get("historical_clues", {})
 
 
+def test_memory_plan_and_act(monkeypatch):
+    """MemoryKeeper should plan and call tools autonomously."""
+    reset()
+
+    class DummyClient:
+        def __init__(self):
+            self.calls = 0
+            self.chat = self.Chat(self)
+
+        class Chat:
+            def __init__(self, outer):
+                self.outer = outer
+                self.completions = self
+
+            def create(self, model, messages, tools=None, tool_choice=None):
+                if self.outer.calls == 0:
+                    self.outer.calls += 1
+
+                    class ToolFunction:
+                        name = "search_corpus"
+                        arguments = '{"query": "Orinoco"}'
+
+                    class ToolCall:
+                        id = "1"
+                        function = ToolFunction()
+
+                    class Message:
+                        content = ""
+                        tool_calls = [ToolCall()]
+
+                    class Completion:
+                        choices = [type("C", (), {"message": Message()})]
+
+                    return Completion()
+
+                class Message:
+                    content = "done"
+                    tool_calls = None
+
+                class Completion:
+                    choices = [type("C", (), {"message": Message()})]
+
+                return Completion()
+
+    monkeypatch.setattr("agents.memory.memory.client", DummyClient())
+
+    mk = MemoryKeeper()
+
+    def stub_search(query: str):
+        world_state["search_results"] = [query]
+        return [query]
+
+    mk.tools["search_corpus"] = stub_search
+
+    answer = mk.plan_and_act("Find references")
+
+    assert answer == "done"
+    assert world_state.get("search_results")
+    msgs = world_state.get("messages", [])
+    assert any(m["type"] == "final_output" for m in msgs)
+
+
