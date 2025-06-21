@@ -1,4 +1,5 @@
 from agents.synthesizer import Synthesizer
+import json
 
 
 def test_sub_agent_instantiation():
@@ -217,3 +218,45 @@ def test_end_to_end_workflow(monkeypatch):
     assert get_value("context_environment")
     msgs = world_state.get("messages", [])
     assert any(m["type"] == "final_output" for m in msgs)
+
+
+def test_max_steps_fallback(monkeypatch):
+    """Synthesizer returns structured JSON when step limit is hit."""
+    from world_state import reset, world_state
+
+    reset()
+
+    class DummyClient:
+        def __init__(self):
+            self.chat = self.Chat(self)
+
+        class Chat:
+            def __init__(self, outer):
+                self.outer = outer
+                self.completions = self
+
+            def create(self, model, messages, tools=None, tool_choice=None):
+                class ToolFunction:
+                    name = "memory_search_corpus"
+                    arguments = '{"query": "x"}'
+
+                class ToolCall:
+                    id = "1"
+                    function = ToolFunction()
+
+                class Message:
+                    content = ""
+                    tool_calls = [ToolCall()]
+
+                class Completion:
+                    choices = [type("C", (), {"message": Message()})]
+
+                return Completion()
+
+    monkeypatch.setattr("agents.synthesizer.synthesizer.client", DummyClient())
+
+    syn = Synthesizer()
+    answer = syn.plan_and_act("Stuck loop", max_steps=2)
+    assert json.loads(answer)["reason"] == "max_steps_exceeded"
+    logs = world_state.get("messages", [])
+    assert any(m["type"] == "final_output" for m in logs)
