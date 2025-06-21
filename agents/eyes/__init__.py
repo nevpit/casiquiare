@@ -6,7 +6,7 @@ import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Tuple, Iterable, Optional
 
-from . import tools, cli
+from . import eyes_tools as tools, cli
 
 try:
     from openai import OpenAI
@@ -131,4 +131,4 @@ class Eyes:
 
 
 # re-export tools module for convenience
-__all__ = ["Eyes", "tools", "cli"]
+__all__ = ["Eyes", "tools", "eyes_tools", "cli"]

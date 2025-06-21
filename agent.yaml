@@ -8,7 +8,7 @@ tools:
     function:
       name: scan_area
       description: Scan a LiDAR tile and detect geometric features.
-      entrypoint: agents.eyes.tools:scan_area
+      entrypoint: agents.eyes.eyes_tools:scan_area
       parameters:
         type: object
         properties:
