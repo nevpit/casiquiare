@@ -660,24 +660,53 @@ def search_text(query: str, top_k: int = 5) -> List[Excerpt]:
         )
 
     sem_excerpts: List[Excerpt] = []
-    if SEMANTIC_INDEX is not None and faiss is not None and np is not None:
-        vec = np.array(_compute_embedding(query), dtype="float32").reshape(1, -1)
-        distances, indices = SEMANTIC_INDEX.search(vec, top_k)
+    try:
+        from milvus_client import connect_milvus, create_embeddings_collection
+
+        connect_milvus()
+        collection = create_embeddings_collection()
+
+        vec = _compute_embedding(query)
+        search_params = {"metric_type": "L2", "params": {"nprobe": 16}}
+        results = collection.search(
+            [vec],
+            "embedding",
+            param=search_params,
+            limit=top_k * 2,
+            output_fields=["doc_id", "title", "page", "chunk"],
+        )
+
         seen = set(kw_indices)
-        for idx, dist in zip(indices[0], distances[0]):
-            if idx < 0 or idx >= len(SEMANTIC_META) or idx in seen:
+        for hit in results[0]:
+            doc_id = str(hit.entity.get("doc_id", ""))
+            page = int(hit.entity.get("page", 0))
+            chunk = int(hit.entity.get("chunk", 0))
+            idx = -1
+            for i, meta in enumerate(SEMANTIC_META):
+                if (
+                    meta.get("doc_id") == doc_id
+                    and meta.get("page") == page
+                    and meta.get("chunk") == chunk
+                ):
+                    idx = i
+                    break
+            if idx < 0 or idx in seen:
                 continue
             meta = SEMANTIC_META[idx]
             sem_excerpts.append(
                 Excerpt(
-                    doc_id=meta.get("doc_id", ""),
-                    title=meta.get("title", ""),
-                    page=meta.get("page", 0),
+                    doc_id=doc_id,
+                    title=hit.entity.get("title", ""),
+                    page=page,
                     text=meta.get("text", ""),
-                    distance=float(dist),
+                    distance=float(hit.distance),
                     source=meta.get("citation", ""),
                 )
             )
+            if len(sem_excerpts) >= top_k:
+                break
+    except Exception:  # pragma: no cover - optional dependency may be missing
+        pass
 
     results = kw_excerpts + sem_excerpts
     return results[:top_k]

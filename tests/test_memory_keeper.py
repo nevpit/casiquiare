@@ -1,4 +1,5 @@
 from agents.memory import MemoryKeeper, memory_tools
+import milvus_client
 from agents.brain import Brain  # ensure brain package loads before world_state
 from world_state import world_state, reset
 
@@ -78,7 +79,7 @@ def test_search_text_basic():
     ]
     mk.index_documents(docs)
     results = mk.search_text("Amazon basin")
-    if memory_tools.faiss is not None:
+    if milvus_client.connections is not None:
         assert results and results[0].doc_id == "d1"
         assert results[0].source
 

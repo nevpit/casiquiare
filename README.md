@@ -276,3 +276,13 @@ insert_image_embeddings([
 ])
 ```
 
+Text chunks are queried from Milvus as well. The helper :func:`search_text`
+computes an embedding for the query and performs a similarity search in the text
+collection:
+
+```python
+from agents.memory import memory_tools
+
+results = memory_tools.search_text("Amazon basin", top_k=3)
+```
+
