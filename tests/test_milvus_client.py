@@ -52,19 +52,23 @@ def test_create_embeddings_collection(monkeypatch):
         def create_index(self, field_name, params):
             events["index"] = params
 
-    DataType = types.SimpleNamespace(INT64="INT64", FLOAT_VECTOR="FLOAT_VECTOR")
+    DataType = types.SimpleNamespace(
+        INT64="INT64", FLOAT_VECTOR="FLOAT_VECTOR", VARCHAR="VARCHAR"
+    )
 
     monkeypatch.setattr("milvus_client.utility", DummyUtility)
     monkeypatch.setattr("milvus_client.FieldSchema", DummyFieldSchema)
     monkeypatch.setattr("milvus_client.CollectionSchema", DummyCollectionSchema)
     monkeypatch.setattr("milvus_client.Collection", DummyCollection)
     monkeypatch.setattr("milvus_client.DataType", DataType)
+    monkeypatch.setattr("milvus_client.connections", object())
 
     create_embeddings_collection()
 
     assert events["name"] == "text_embeddings"
     assert events["index"]["metric_type"] == "L2"
-    assert events["fields"][2][2]["dim"] == 1536
+    assert len(events["fields"]) == 6
+    assert events["fields"][-1][2]["dim"] == 1536
 
 
 def test_create_image_embeddings_collection(monkeypatch):
@@ -91,13 +95,16 @@ def test_create_image_embeddings_collection(monkeypatch):
         def create_index(self, field_name, params):
             events["index"] = params
 
-    DataType = types.SimpleNamespace(INT64="INT64", FLOAT_VECTOR="FLOAT_VECTOR")
+    DataType = types.SimpleNamespace(
+        INT64="INT64", FLOAT_VECTOR="FLOAT_VECTOR", VARCHAR="VARCHAR"
+    )
 
     monkeypatch.setattr("milvus_client.utility", DummyUtility)
     monkeypatch.setattr("milvus_client.FieldSchema", DummyFieldSchema)
     monkeypatch.setattr("milvus_client.CollectionSchema", DummyCollectionSchema)
     monkeypatch.setattr("milvus_client.Collection", DummyCollection)
     monkeypatch.setattr("milvus_client.DataType", DataType)
+    monkeypatch.setattr("milvus_client.connections", object())
 
     create_image_embeddings_collection()
 

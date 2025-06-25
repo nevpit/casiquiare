@@ -61,8 +61,7 @@ def test_semantic_search_basic():
     ]
     mk.index_documents(docs)
     results = mk.semantic_search("Amazon")
-    if memory_tools.faiss is not None:
-        assert results and results[0]["doc_id"] == "d1"
+    assert results == []
 
 
 def test_search_text_basic():

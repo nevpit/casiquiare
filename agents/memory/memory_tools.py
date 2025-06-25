@@ -526,18 +526,32 @@ def _compute_embedding(text: str) -> List[float]:
 
 
 def index_documents(docs: List[Dict[str, Any]], chunk_size: int = 500) -> None:
-    """Index documents for semantic and keyword search."""
+    """Index documents for semantic and keyword search using Milvus."""
     global SEMANTIC_INDEX, SEMANTIC_META, KEYWORD_INDEX, LOCATION_INDEX, DISTANCE_CLUES
-    embeddings = []
-    metadata = []
+
+    from milvus_client import connect_milvus, create_embeddings_collection
+
     KEYWORD_INDEX.clear()
     LOCATION_INDEX.clear()
     DISTANCE_CLUES.clear()
-    if faiss is None or np is None:
-        logger.info("faiss or numpy missing; building keyword index only")
-    
+    SEMANTIC_META = []
+    SEMANTIC_INDEX = None
+
+    try:
+        connect_milvus()
+        collection = create_embeddings_collection()
+    except Exception:  # pragma: no cover - optional dependency may be missing
+        collection = None
+        logger.info("Milvus not available; embeddings will not be stored", exc_info=True)
+
+    doc_ids: List[str] = []
+    titles: List[str] = []
+    pages: List[int] = []
+    chunks: List[int] = []
+    embeddings: List[List[float]] = []
+
     for doc in docs:
-        doc_id = doc.get("id")
+        doc_id = str(doc.get("id", ""))
         title = doc.get("title", "")
         author = doc.get("author", "")
         date = doc.get("date", "")
@@ -548,14 +562,12 @@ def index_documents(docs: List[Dict[str, Any]], chunk_size: int = 500) -> None:
             words = para.split()
             for start in range(0, len(words), chunk_size):
                 chunk = " ".join(words[start : start + chunk_size])
-                if faiss is not None and np is not None:
-                    emb = _compute_embedding(chunk)
-                    embeddings.append(np.array(emb, dtype="float32"))
+                emb = _compute_embedding(chunk)
                 citation = make_citation(title, author, date, page)
                 locs = extract_locations(chunk, doc_id=doc_id or "", title=title, page=page, citation=citation)
                 clues = parse_distance_clues(chunk)
-                idx = len(metadata)
-                metadata.append(
+                idx = len(SEMANTIC_META)
+                SEMANTIC_META.append(
                     {
                         "doc_id": doc_id,
                         "title": title,
@@ -583,13 +595,17 @@ def index_documents(docs: List[Dict[str, Any]], chunk_size: int = 500) -> None:
                             source=citation,
                         )
                     )
-    if embeddings and faiss is not None and np is not None:
-        index = faiss.IndexFlatL2(EMBED_DIM)
-        index.add(np.vstack(embeddings))
-        SEMANTIC_INDEX = index
-    else:
-        SEMANTIC_INDEX = None
-    SEMANTIC_META = metadata
+
+                if collection is not None:
+                    doc_ids.append(doc_id)
+                    titles.append(title)
+                    pages.append(page)
+                    chunks.append(pi)
+                    embeddings.append(emb)
+
+    if collection is not None and embeddings:
+        collection.insert([doc_ids, titles, pages, chunks, embeddings])
+        collection.flush()
 
 
 @log_action

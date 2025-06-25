@@ -8,7 +8,12 @@ from typing import Any
 try:
     from pymilvus import Collection, CollectionSchema, FieldSchema, DataType, connections, utility
 except Exception:  # pragma: no cover - optional dependency may be missing
+    Collection = None  # type: ignore
+    CollectionSchema = None  # type: ignore
+    FieldSchema = None  # type: ignore
+    DataType = None  # type: ignore
     connections = None  # type: ignore
+    utility = None  # type: ignore
 
 
 def connect_milvus(host: str | None = None, port: str | None = None, alias: str = "default") -> Any:
@@ -37,7 +42,7 @@ def connect_milvus(host: str | None = None, port: str | None = None, alias: str 
 def create_embeddings_collection(
     name: str = "text_embeddings", dim: int = 1536, metric_type: str = "L2"
 ) -> Any:
-    """Create or retrieve a collection for text embeddings."""
+    """Create or retrieve a collection for text embeddings with metadata."""
     if connections is None:
         raise RuntimeError("pymilvus is not installed")
 
@@ -46,7 +51,10 @@ def create_embeddings_collection(
 
     fields = [
         FieldSchema(name="id", dtype=DataType.INT64, is_primary=True, auto_id=True),
-        FieldSchema(name="doc_id", dtype=DataType.INT64),
+        FieldSchema(name="doc_id", dtype=DataType.VARCHAR, max_length=256),
+        FieldSchema(name="title", dtype=DataType.VARCHAR, max_length=512),
+        FieldSchema(name="page", dtype=DataType.INT64),
+        FieldSchema(name="chunk", dtype=DataType.INT64),
         FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=dim),
     ]
     schema = CollectionSchema(fields)
