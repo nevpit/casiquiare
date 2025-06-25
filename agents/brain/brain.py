@@ -74,10 +74,16 @@ class Brain:
             {"role": "system", "content": self.system_prompt},
             {"role": "user", "content": query},
         ]
-        response = client.chat.completions.create(model=self.model, messages=messages)
-        reply = response.choices[0].message.content.strip()
-        log_message("brain", "chat", reply)
-        return reply
+        try:
+            response = client.chat.completions.create(
+                model=self.model, messages=messages
+            )
+            reply = response.choices[0].message.content.strip()
+            log_message("brain", "chat", reply)
+            return reply
+        except Exception as exc:  # pragma: no cover - runtime failure
+            logger.warning("LLM chat failed: %s", exc)
+            return json.dumps({"error": str(exc)})
 
     # ------------------------------------------------------------------
     # Lightweight planning via function calling
@@ -161,13 +167,17 @@ class Brain:
 
         step = 0
         while step < max_steps:
-            response = client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                tools=tools,
-                tool_choice="auto",
-            )
-            msg = response.choices[0].message
+            try:
+                response = client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    tools=tools,
+                    tool_choice="auto",
+                )
+                msg = response.choices[0].message
+            except Exception as exc:  # pragma: no cover - runtime failure
+                logger.warning("LLM chat failed: %s", exc)
+                return json.dumps({"error": str(exc)})
             step += 1
 
             if getattr(msg, "tool_calls", None):

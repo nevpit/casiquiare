@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from typing import Any, Dict
+import json
 
 from log_config import setup_logger
 from . import context_tools
@@ -60,13 +61,19 @@ class ContextEngine:
             {"role": "system", "content": self.system_prompt},
             {"role": "user", "content": query},
         ]
-        response = client.chat.completions.create(model=self.model, messages=messages)
-        reply = response.choices[0].message.content.strip()
-        logger.info("ask result length=%d", len(reply))
-        from world_state import log_message
+        try:
+            response = client.chat.completions.create(
+                model=self.model, messages=messages
+            )
+            reply = response.choices[0].message.content.strip()
+            logger.info("ask result length=%d", len(reply))
+            from world_state import log_message
 
-        log_message("context", "chat", reply)
-        return reply
+            log_message("context", "chat", reply)
+            return reply
+        except Exception as exc:  # pragma: no cover - runtime failure
+            logger.warning("LLM chat failed: %s", exc)
+            return json.dumps({"error": str(exc)})
 
     def sample_elevation(self, path: str, lat: float, lon: float) -> Dict[str, Any]:
         """Delegate to :func:`context_tools.sample_elevation` and log the result."""

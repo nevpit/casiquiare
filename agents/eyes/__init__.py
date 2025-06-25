@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Tuple, Iterable, Optional
+import json
 
 from . import eyes_tools as tools, cli
 
@@ -126,8 +127,14 @@ class Eyes:
             {"role": "system", "content": self.system_prompt},
             {"role": "user", "content": findings},
         ]
-        response = client.chat.completions.create(model=self.model, messages=messages)
-        return response.choices[0].message.content.strip()
+        try:
+            response = client.chat.completions.create(
+                model=self.model, messages=messages
+            )
+            return response.choices[0].message.content.strip()
+        except Exception as exc:  # pragma: no cover - runtime failure
+            logger.warning("LLM chat failed: %s", exc)
+            return json.dumps({"error": str(exc)})
 
 
 # re-export tools module for convenience
