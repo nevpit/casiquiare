@@ -4,12 +4,20 @@ from interface import create_app
 def test_milvus_init_called(monkeypatch):
     called = {}
 
-    def dummy():
-        called['cnt'] = called.get('cnt', 0) + 1
+    def dummy_conn():
+        called['connect'] = True
         return 'conn'
 
-    monkeypatch.setattr('interface.backend.app.connect_milvus', dummy)
+    def dummy_coll():
+        called['coll'] = True
+        return 'collection'
+
+    monkeypatch.setattr('interface.backend.app.connect_milvus', dummy_conn)
+    monkeypatch.setattr('interface.backend.app.create_embeddings_collection', dummy_coll)
+
     app = create_app()
-    assert called.get('cnt') == 1
+
+    assert called.get('connect')
+    assert called.get('coll')
     assert app.extensions['milvus_conn'] == 'conn'
 

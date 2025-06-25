@@ -6,7 +6,7 @@ from pathlib import Path
 from flask import Flask, send_from_directory
 
 from .utils.config import load_backend_config
-from milvus_client import connect_milvus
+from milvus_client import connect_milvus, create_embeddings_collection
 
 from .routes.eyes import bp as eyes_bp
 from .routes.tiles import bp as tiles_bp
@@ -26,6 +26,7 @@ def create_app(static_path: Path | None = None) -> Flask:
     # Establish connection to Milvus if possible
     try:
         app.extensions["milvus_conn"] = connect_milvus()
+        create_embeddings_collection()
     except Exception:  # pragma: no cover - optional dependency may be missing
         app.logger.info("Milvus connection not initialized", exc_info=True)
 

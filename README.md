@@ -233,3 +233,13 @@ conn = connect_milvus()  # uses environment variables if provided
 The Flask backend automatically attempts this connection when
 ``create_app`` is called, storing the handle under ``app.extensions['milvus_conn']``.
 
+To store text embeddings, a helper is provided to create a collection with a
+1536-dimensional vector field and a ``doc_id`` metadata column using the L2
+metric:
+
+```python
+from milvus_client import create_embeddings_collection
+
+collection = create_embeddings_collection()
+```
+
