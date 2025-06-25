@@ -3,9 +3,10 @@ from __future__ import annotations
 """Utility helpers for connecting to a Milvus vector database."""
 
 import os
+from pathlib import Path
 from typing import Any
 
-from clip_model import compute_image_embedding
+from clip_model import compute_image_embedding, compute_text_embedding
 
 try:
     from pymilvus import Collection, CollectionSchema, FieldSchema, DataType, connections, utility
@@ -142,9 +143,55 @@ def insert_image_embeddings(
     return collection
 
 
+def search_images(
+    query: str | "Image.Image",
+    *,
+    top_k: int = 5,
+    collection: Any | None = None,
+) -> list[dict[str, Any]]:
+    """Search the image embeddings collection for ``query``.
+
+    ``query`` may be an image path or :class:`PIL.Image` instance. If ``query``
+    is text or a path that does not exist, a text embedding is computed using
+    the CLIP model instead.
+    """
+
+    if connections is None:
+        raise RuntimeError("pymilvus is not installed")
+
+    if collection is None:
+        collection = create_image_embeddings_collection()
+
+    if isinstance(query, str) and not Path(query).is_file():
+        vec = compute_text_embedding(query)
+    else:
+        vec = compute_image_embedding(query)
+
+    search_params = {"metric_type": "L2", "params": {"nprobe": 16}}
+    results = collection.search(
+        [vec],
+        "embedding",
+        param=search_params,
+        limit=top_k,
+        output_fields=["image_id", "source"],
+    )
+
+    matches: list[dict[str, Any]] = []
+    for hit in results[0]:
+        matches.append(
+            {
+                "image_id": int(hit.entity.get("image_id", 0)),
+                "source": hit.entity.get("source", ""),
+                "distance": float(hit.distance),
+            }
+        )
+    return matches
+
+
 __all__ = [
     "connect_milvus",
     "create_embeddings_collection",
     "create_image_embeddings_collection",
     "insert_image_embeddings",
+    "search_images",
 ]

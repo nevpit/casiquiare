@@ -50,4 +50,22 @@ def image_embedding(path: str) -> list[float]:
     return compute_image_embedding(path)
 
 
-__all__ = ["load_clip_model", "compute_image_embedding", "image_embedding"]
+def compute_text_embedding(text: str) -> list[float]:
+    """Return the embedding vector for ``text`` using the loaded CLIP model."""
+    if clip is None or torch is None:
+        raise RuntimeError("CLIP dependencies are not installed")
+    if CLIP_MODEL is None:
+        raise RuntimeError("CLIP model has not been loaded")
+
+    tokens = clip.tokenize([text])
+    with torch.no_grad():
+        vec = CLIP_MODEL.encode_text(tokens)
+    return vec[0].tolist()
+
+
+__all__ = [
+    "load_clip_model",
+    "compute_image_embedding",
+    "compute_text_embedding",
+    "image_embedding",
+]

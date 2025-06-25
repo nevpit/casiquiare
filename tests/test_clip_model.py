@@ -1,7 +1,10 @@
 from types import SimpleNamespace
 import pytest
-
-from clip_model import load_clip_model, compute_image_embedding
+from clip_model import (
+    load_clip_model,
+    compute_image_embedding,
+    compute_text_embedding,
+)
 
 
 def test_load_clip_model(monkeypatch):
@@ -84,3 +87,43 @@ def test_compute_image_embedding(monkeypatch):
 
     vec2 = compute_image_embedding(dummy_image)
     assert vec2 == [1.0, 2.0]
+
+
+def test_compute_text_embedding(monkeypatch):
+    events = {}
+
+    class DummyArray:
+        def __init__(self, arr):
+            self.arr = arr
+
+        def tolist(self):
+            return self.arr
+
+    class DummyModel:
+        def eval(self):
+            pass
+
+        def encode_text(self, tokens):
+            events["encode"] = tokens
+            return [DummyArray([3.0, 4.0])]
+
+    def dummy_load(name="ViT-B/32", device="cpu"):
+        return DummyModel(), "prep"
+
+    class DummyNoGrad:
+        def __enter__(self):
+            return None
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    monkeypatch.setattr(
+        "clip_model.clip",
+        SimpleNamespace(load=dummy_load, tokenize=lambda x: "tok"),
+    )
+    monkeypatch.setattr("clip_model.torch", SimpleNamespace(no_grad=lambda: DummyNoGrad()))
+
+    load_clip_model()
+    vec = compute_text_embedding("hello")
+    assert vec == [3.0, 4.0]
+    assert events["encode"] == "tok"

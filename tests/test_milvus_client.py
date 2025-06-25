@@ -1,4 +1,5 @@
 import types
+import milvus_client
 from milvus_client import (
     connect_milvus,
     create_embeddings_collection,
@@ -146,3 +147,44 @@ def test_insert_image_embeddings(monkeypatch):
     assert inserted["data"][2] == [[0.1, 0.2], [0.1, 0.2]]
     assert inserted.get("flushed")
     assert isinstance(coll, DummyCollection)
+
+
+def test_search_images(monkeypatch, tmp_path):
+    events = {}
+
+    class DummyCollection:
+        def search(self, data, field, param=None, limit=None, output_fields=None):
+            events["limit"] = limit
+            events["fields"] = output_fields
+            class Hit:
+                distance = 0.1
+                entity = {"image_id": 7, "source": "scan"}
+
+            return [[Hit()]]
+
+    path = tmp_path / "img.jpg"
+    path.write_text("x")
+
+    called = {}
+    monkeypatch.setattr(
+        "milvus_client.create_image_embeddings_collection",
+        lambda: DummyCollection(),
+    )
+    monkeypatch.setattr("milvus_client.connections", object())
+    monkeypatch.setattr(
+        "milvus_client.compute_image_embedding",
+        lambda img: called.setdefault("image", True) or [0.1, 0.2],
+    )
+    monkeypatch.setattr(
+        "milvus_client.compute_text_embedding",
+        lambda text: called.setdefault("text", True) or [0.3, 0.4],
+    )
+
+    res1 = milvus_client.search_images(str(path), top_k=2)
+    res2 = milvus_client.search_images("river", top_k=1)
+
+    assert called.get("image") and called.get("text")
+    assert events["limit"] == 1  # last call
+    assert "image_id" in events["fields"]
+    assert res1 and res1[0]["image_id"] == 7
+    assert res2 and res2[0]["image_id"] == 7

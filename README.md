@@ -286,3 +286,14 @@ from agents.memory import memory_tools
 results = memory_tools.search_text("Amazon basin", top_k=3)
 ```
 
+Images can be queried in a similar way using :func:`search_images`:
+
+```python
+from milvus_client import search_images
+
+matches = search_images("artifact.jpg", top_k=5)
+```
+
+The function accepts either an image path/PIL object or a text query and returns
+the closest stored images from Milvus.
+
