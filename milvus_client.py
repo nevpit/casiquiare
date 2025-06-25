@@ -73,7 +73,12 @@ def create_embeddings_collection(
 def create_image_embeddings_collection(
     name: str = "image_embeddings", dim: int = 512, metric_type: str = "L2"
 ) -> Any:
-    """Create or retrieve a collection for image embeddings with metadata."""
+    """Create or retrieve a collection for image embeddings with metadata.
+
+    The collection stores a ``FLOAT_VECTOR`` field named ``embedding`` as well
+    as ``image_id`` and ``source`` columns describing the image source or
+    provenance.
+    """
     if connections is None:
         raise RuntimeError("pymilvus is not installed")
 

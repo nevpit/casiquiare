@@ -246,8 +246,8 @@ collection = create_embeddings_collection()
 ```
 
 The helper :func:`create_image_embeddings_collection` sets up a separate
-collection for storing CLIP image vectors with a ``512``-dimensional
-``embedding`` field and an ``image_id`` metadata column:
+collection for storing CLIP image vectors. It creates an ``embedding`` field of
+dimension ``512`` along with ``image_id`` and ``source`` metadata columns:
 
 ```python
 from milvus_client import create_image_embeddings_collection
