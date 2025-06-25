@@ -12,7 +12,6 @@ scikit-learn
 xgboost
 Flask
 langdetect
-faiss-cpu
 spacy
 pymilvus
 clip

@@ -48,22 +48,6 @@ def test_translate_text_basic():
     assert isinstance(result, str)
 
 
-def test_semantic_search_basic():
-    reset()
-    mk = MemoryKeeper()
-    docs = [
-        {
-            "id": "d1",
-            "title": "doc",
-            "author": "Smith",
-            "date": "1920",
-            "text": "The Amazon river basin is vast."
-        }
-    ]
-    mk.index_documents(docs)
-    results = mk.semantic_search("Amazon")
-    assert results == []
-
 
 def test_search_text_basic():
     reset()

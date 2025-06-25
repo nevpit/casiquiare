@@ -34,7 +34,6 @@ class MemoryKeeper:
         if client is not None:
             self.tools = {
                 "search_corpus": self.search_corpus,
-                "semantic_search": self.semantic_search,
                 "geocode_place": self.geocode_place,
                 "search_text": self.search_text,
                 "extract_locations": self.extract_locations,
@@ -283,16 +282,6 @@ class MemoryKeeper:
         logger.info("index_documents count=%d", len(docs))
         memory_tools.index_documents(docs)
         log_message("memory", "index_documents", {"count": len(docs)})
-
-    def semantic_search(self, query: str, top_k: int = 5):
-        from world_state import world_state, log_message
-
-        logger.info("semantic_search query=%s", query)
-        results = memory_tools.semantic_search(query, top_k=top_k)
-        world_state["semantic_results"] = results
-        log_message("memory", "semantic_search", results)
-        logger.info("semantic_search returned %d results", len(results))
-        return results
 
     def search_text(self, query: str, top_k: int = 5):
         from world_state import world_state, log_message

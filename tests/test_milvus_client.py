@@ -69,7 +69,7 @@ def test_create_embeddings_collection(monkeypatch):
 
     assert events["name"] == "text_embeddings"
     assert events["index"]["metric_type"] == "L2"
-    assert len(events["fields"]) == 6
+    assert len(events["fields"]) == 8
     assert events["fields"][-1][2]["dim"] == 1536
 
 

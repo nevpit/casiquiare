@@ -23,8 +23,26 @@ def test_search_text_uses_milvus(monkeypatch):
             events['fields'] = output_fields
             class Hit:
                 distance = 0.1
-                entity = {'doc_id': 'd1', 'title': 'doc', 'page': 0, 'chunk': 0}
+                entity = {
+                    'doc_id': 'd1',
+                    'title': 'doc',
+                    'page': 0,
+                    'text': 'the amazon basin is huge',
+                    'citation': 'doc, A, 1900',
+                }
+                id = 0
             return [[Hit()]]
+
+        def query(self, expr, output_fields=None, partition_names=None, timeout=None, **kwargs):
+            events['query'] = expr
+            return [{
+                'id': 0,
+                'doc_id': 'd1',
+                'title': 'doc',
+                'page': 0,
+                'text': 'the amazon basin is huge',
+                'citation': 'doc, A, 1900',
+            }]
 
     monkeypatch.setattr('milvus_client.connect_milvus', lambda *a, **k: 'conn')
     monkeypatch.setattr('milvus_client.create_embeddings_collection', lambda: DummyCollection())
@@ -43,4 +61,5 @@ def test_search_text_uses_milvus(monkeypatch):
 
     assert events.get('limit') == 10
     assert 'doc_id' in events.get('fields', [])
+    assert 'text' in events.get('fields', [])
     assert res and res[0].doc_id == 'd1'

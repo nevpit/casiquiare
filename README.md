@@ -236,8 +236,7 @@ The Flask backend automatically attempts this connection when
 To store text embeddings, a helper is provided to create a collection with a
 1536-dimensional vector field and metadata columns using the L2 metric.  The
 ``index_documents`` function now writes each text chunk's embedding to this
-collection along with its ``doc_id``, ``title`` and page number instead of
-building an in-memory FAISS index:
+collection along with its ``doc_id``, ``title`` and page number:
 
 ```python
 from milvus_client import create_embeddings_collection

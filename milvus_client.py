@@ -58,6 +58,8 @@ def create_embeddings_collection(
         FieldSchema(name="title", dtype=DataType.VARCHAR, max_length=512),
         FieldSchema(name="page", dtype=DataType.INT64),
         FieldSchema(name="chunk", dtype=DataType.INT64),
+        FieldSchema(name="text", dtype=DataType.VARCHAR, max_length=8192),
+        FieldSchema(name="citation", dtype=DataType.VARCHAR, max_length=1024),
         FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=dim),
     ]
     schema = CollectionSchema(fields)
