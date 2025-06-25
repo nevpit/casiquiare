@@ -255,3 +255,12 @@ from milvus_client import create_image_embeddings_collection
 img_coll = create_image_embeddings_collection()
 ```
 
+Use :func:`load_clip_model` to initialize the OpenAI CLIP image encoder when the
+application starts so image embeddings can be generated:
+
+```python
+from clip_model import load_clip_model
+
+clip_model = load_clip_model()
+```
+

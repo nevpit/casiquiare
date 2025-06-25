@@ -28,3 +28,6 @@ milvus:
   port: 19530                # Milvus server port
   collection: text_embeddings # collection name for embeddings
   image_collection: image_embeddings # collection for image embeddings
+
+clip:
+  model: ViT-B/32            # CLIP model for image embeddings
