@@ -73,7 +73,6 @@ class Synthesizer:
             "brain_exec_code": self.brain.exec_code,
             # Memory Keeper tools
             "memory_search_corpus": self.memory_keeper.search_corpus,
-            "memory_semantic_search": self.memory_keeper.semantic_search,
             "memory_geocode_place": self.memory_keeper.geocode_place,
             "memory_extract_locations": self.memory_keeper.extract_locations,
             # Context Engine tools

@@ -215,3 +215,89 @@ from agents.brain import brain_tools
 
 info = brain_tools.train_model(df, model_type="xgboost", n_estimators=200)
 ```
+
+## Milvus vector database connection
+
+The project can optionally connect to a self-hosted Milvus instance using the
+``pymilvus`` client. Connection parameters are read from the ``MILVUS_HOST`` and
+``MILVUS_PORT`` environment variables and default to ``localhost`` and
+``19530`` respectively. The helper :func:`connect_milvus` in ``milvus_client``
+establishes the connection:
+
+```python
+from milvus_client import connect_milvus
+
+conn = connect_milvus()  # uses environment variables if provided
+```
+
+The Flask backend automatically attempts this connection when
+``create_app`` is called, storing the handle under ``app.extensions['milvus_conn']``.
+
+To store text embeddings, a helper is provided to create a collection with a
+1536-dimensional vector field and metadata columns using the L2 metric.  The
+``index_documents`` function now writes each text chunk's embedding to this
+collection along with its ``doc_id``, ``title`` and page number:
+
+```python
+from milvus_client import create_embeddings_collection
+
+collection = create_embeddings_collection()
+```
+
+The helper :func:`create_image_embeddings_collection` sets up a separate
+collection for storing CLIP image vectors. It creates an ``embedding`` field of
+dimension ``512`` along with ``image_id`` and ``source`` metadata columns:
+
+```python
+from milvus_client import create_image_embeddings_collection
+
+img_coll = create_image_embeddings_collection()
+```
+
+Use :func:`load_clip_model` to initialize the OpenAI CLIP image encoder when the
+application starts so image embeddings can be generated:
+
+```python
+from clip_model import load_clip_model, compute_image_embedding
+
+clip_model = load_clip_model()
+vec = compute_image_embedding("image.jpg")
+```
+
+You can then store vectors for one or more images using
+:func:`insert_image_embeddings`:
+
+```python
+from milvus_client import insert_image_embeddings
+
+insert_image_embeddings([
+    {"image_id": 1, "path": "image.jpg", "source": "scan"},
+])
+```
+
+Text chunks are queried from Milvus as well. The helper :func:`search_text`
+computes an embedding for the query and performs a similarity search in the text
+collection:
+
+```python
+from agents.memory import memory_tools
+
+results = memory_tools.search_text("Amazon basin", top_k=3)
+```
+
+Images can be queried in a similar way using :func:`search_images`:
+
+```python
+from milvus_client import search_images
+
+matches = search_images("artifact.jpg", top_k=5)
+
+# Alternatively via the Memory Keeper helper
+from agents.memory import memory_tools
+
+matches2 = memory_tools.search_images("ancient pot", top_k=3)
+```
+
+The function accepts either an image path/PIL object or a text query and returns
+the closest stored images from Milvus.
+

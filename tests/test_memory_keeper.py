@@ -1,4 +1,5 @@
 from agents.memory import MemoryKeeper, memory_tools
+import milvus_client
 from agents.brain import Brain  # ensure brain package loads before world_state
 from world_state import world_state, reset
 
@@ -47,23 +48,6 @@ def test_translate_text_basic():
     assert isinstance(result, str)
 
 
-def test_semantic_search_basic():
-    reset()
-    mk = MemoryKeeper()
-    docs = [
-        {
-            "id": "d1",
-            "title": "doc",
-            "author": "Smith",
-            "date": "1920",
-            "text": "The Amazon river basin is vast."
-        }
-    ]
-    mk.index_documents(docs)
-    results = mk.semantic_search("Amazon")
-    if memory_tools.faiss is not None:
-        assert results and results[0]["doc_id"] == "d1"
-
 
 def test_search_text_basic():
     reset()
@@ -79,7 +63,7 @@ def test_search_text_basic():
     ]
     mk.index_documents(docs)
     results = mk.search_text("Amazon basin")
-    if memory_tools.faiss is not None:
+    if milvus_client.connections is not None:
         assert results and results[0].doc_id == "d1"
         assert results[0].source
 
@@ -100,6 +84,38 @@ def test_search_text_keyword():
     results = mk.search_text("Yucuru")
     assert results and results[0].doc_id == "d2"
     assert results[0].source
+
+
+def test_search_text_updates_world_state(monkeypatch):
+    reset()
+    mk = MemoryKeeper()
+    monkeypatch.setattr(
+        memory_tools,
+        "search_text",
+        lambda q, top_k=5: [memory_tools.Excerpt(doc_id="d1", title="doc", page=0, text="t", source="test")],
+    )
+
+    res = mk.search_text("foo")
+    assert world_state.get("search_text_results")
+    assert res and res[0].doc_id == "d1"
+    msgs = world_state.get("messages", [])
+    assert any(m["type"] == "search_text" for m in msgs)
+
+
+def test_search_images_updates_world_state(monkeypatch):
+    reset()
+    mk = MemoryKeeper()
+    monkeypatch.setattr(
+        memory_tools,
+        "search_images",
+        lambda q, top_k=5: [{"image_id": 1, "source": "scan"}],
+    )
+
+    res = mk.search_images("img")
+    assert world_state.get("search_image_results") == [{"image_id": 1, "source": "scan"}]
+    assert res and res[0]["image_id"] == 1
+    msgs = world_state.get("messages", [])
+    assert any(m["type"] == "search_images" for m in msgs)
 
 
 def test_extract_locations_basic():

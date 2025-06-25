@@ -40,3 +40,5 @@ def test_imports():
     importlib.import_module("detection.sat")
     importlib.import_module("detection.ml_filter")
     importlib.import_module("io_utils.raster")
+    importlib.import_module("milvus_client")
+    importlib.import_module("clip_model")

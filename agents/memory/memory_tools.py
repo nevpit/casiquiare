@@ -117,12 +117,6 @@ except Exception:  # pragma: no cover - optional dependency may be missing
     spacy = None  # type: ignore
     nlp = None
 
-try:
-    import faiss
-    import numpy as np
-except Exception:  # pragma: no cover - optional dependency may be missing
-    faiss = None  # type: ignore
-    np = None  # type: ignore
 
 # Simple in-memory corpus used for demonstrations
 CORPUS: Dict[str, str] = {
@@ -137,14 +131,14 @@ PLACE_DB: Dict[str, Tuple[float, float]] = {
     "Santa Isabel": (-65.0, 0.5),
 }
 
-# Semantic search index
+# Embedding configuration and indices
 EMBED_DIM = 1536
-SEMANTIC_INDEX: Optional[Any] = None
-SEMANTIC_META: List[Dict[str, Any]] = []
 
 KEYWORD_INDEX: Dict[str, List[int]] = {}
 LOCATION_INDEX: Dict[str, List[int]] = {}
 DISTANCE_CLUES: List[DistanceClue] = []
+TEXT_DB: Dict[int, Dict[str, Any]] = {}
+NEXT_ID = 0
 
 
 def make_citation(title: str = "", author: str = "", date: str = "", page: Optional[int] = None) -> str:
@@ -526,18 +520,35 @@ def _compute_embedding(text: str) -> List[float]:
 
 
 def index_documents(docs: List[Dict[str, Any]], chunk_size: int = 500) -> None:
-    """Index documents for semantic and keyword search."""
-    global SEMANTIC_INDEX, SEMANTIC_META, KEYWORD_INDEX, LOCATION_INDEX, DISTANCE_CLUES
-    embeddings = []
-    metadata = []
+    """Index documents for semantic and keyword search using Milvus."""
+    global KEYWORD_INDEX, LOCATION_INDEX, DISTANCE_CLUES
+
+    from milvus_client import connect_milvus, create_embeddings_collection
+
     KEYWORD_INDEX.clear()
     LOCATION_INDEX.clear()
     DISTANCE_CLUES.clear()
-    if faiss is None or np is None:
-        logger.info("faiss or numpy missing; building keyword index only")
-    
+
+    try:
+        connect_milvus()
+        collection = create_embeddings_collection()
+    except Exception:  # pragma: no cover - optional dependency may be missing
+        collection = None
+        logger.info("Milvus not available; embeddings will not be stored", exc_info=True)
+
+    doc_ids: List[str] = []
+    titles: List[str] = []
+    pages: List[int] = []
+    chunks: List[int] = []
+    texts: List[str] = []
+    citations: List[str] = []
+    embeddings: List[List[float]] = []
+    tokens_list: List[set[str]] = []
+    locs_list: List[List[Entity]] = []
+    clues_list: List[List[DistanceClue]] = []
+
     for doc in docs:
-        doc_id = doc.get("id")
+        doc_id = str(doc.get("id", ""))
         title = doc.get("title", "")
         author = doc.get("author", "")
         date = doc.get("date", "")
@@ -548,70 +559,78 @@ def index_documents(docs: List[Dict[str, Any]], chunk_size: int = 500) -> None:
             words = para.split()
             for start in range(0, len(words), chunk_size):
                 chunk = " ".join(words[start : start + chunk_size])
-                if faiss is not None and np is not None:
-                    emb = _compute_embedding(chunk)
-                    embeddings.append(np.array(emb, dtype="float32"))
+                emb = _compute_embedding(chunk)
                 citation = make_citation(title, author, date, page)
-                locs = extract_locations(chunk, doc_id=doc_id or "", title=title, page=page, citation=citation)
-                clues = parse_distance_clues(chunk)
-                idx = len(metadata)
-                metadata.append(
-                    {
-                        "doc_id": doc_id,
-                        "title": title,
-                        "page": page,
-                        "chunk": pi,
-                        "text": chunk,
-                        "locations": [l.text for l in locs],
-                        "distance_clues": [asdict(c) for c in clues],
-                        "citation": citation,
-                    }
+                locs = extract_locations(
+                    chunk,
+                    doc_id=doc_id or "",
+                    title=title,
+                    page=page,
+                    citation=citation,
                 )
-                for tok in set(re.findall(r"\w+", chunk.lower())):
-                    KEYWORD_INDEX.setdefault(tok, []).append(idx)
-                for loc in locs:
-                    LOCATION_INDEX.setdefault(loc.text.lower(), []).append(idx)
-                for c in clues:
-                    DISTANCE_CLUES.append(
-                        DistanceClue(
-                            ref_place=c.ref_place,
-                            direction=c.direction,
-                            distance=c.distance,
-                            unit=c.unit,
-                            doc_id=doc_id or "",
-                            page=page,
-                            source=citation,
-                        )
-                    )
-    if embeddings and faiss is not None and np is not None:
-        index = faiss.IndexFlatL2(EMBED_DIM)
-        index.add(np.vstack(embeddings))
-        SEMANTIC_INDEX = index
-    else:
-        SEMANTIC_INDEX = None
-    SEMANTIC_META = metadata
+                clues = parse_distance_clues(chunk)
 
+                doc_ids.append(doc_id)
+                titles.append(title)
+                pages.append(page)
+                chunks.append(pi)
+                texts.append(chunk)
+                citations.append(citation)
+                embeddings.append(emb)
+                tokens_list.append(set(re.findall(r"\w+", chunk.lower())))
+                locs_list.append(locs)
+                clues_list.append(clues)
 
-@log_action
-def semantic_search(query: str, top_k: int = 5) -> List[Dict[str, Any]]:
-    """Search the semantic index for ``query`` and return metadata."""
-    if SEMANTIC_INDEX is None or faiss is None or np is None:
-        return []
-    vec = np.array(_compute_embedding(query), dtype="float32").reshape(1, -1)
-    distances, indices = SEMANTIC_INDEX.search(vec, top_k)
-    results = []
-    for idx, dist in zip(indices[0], distances[0]):
-        if idx < 0 or idx >= len(SEMANTIC_META):
-            continue
-        meta = dict(SEMANTIC_META[idx])
-        meta["distance"] = float(dist)
-        results.append(meta)
-    return results
+    ids: List[int] = []
+    if collection is not None and embeddings:
+        res = collection.insert([
+            doc_ids,
+            titles,
+            pages,
+            chunks,
+            texts,
+            citations,
+            embeddings,
+        ])
+        collection.flush()
+        ids = [int(i) for i in getattr(res, "primary_keys", [])]
+    elif embeddings:
+        global NEXT_ID
+        ids = list(range(NEXT_ID, NEXT_ID + len(embeddings)))
+        NEXT_ID += len(embeddings)
+
+    for rid, tokens, locs, clues, doc_id, page, citation, text in zip(
+        ids, tokens_list, locs_list, clues_list, doc_ids, pages, citations, texts
+    ):
+        TEXT_DB[rid] = {
+            "doc_id": doc_id,
+            "title": title,
+            "page": page,
+            "text": text,
+            "citation": citation,
+        }
+        for tok in tokens:
+            KEYWORD_INDEX.setdefault(tok, []).append(rid)
+        for loc in locs:
+            LOCATION_INDEX.setdefault(loc.text.lower(), []).append(rid)
+        for c in clues:
+            DISTANCE_CLUES.append(
+                DistanceClue(
+                    ref_place=c.ref_place,
+                    direction=c.direction,
+                    distance=c.distance,
+                    unit=c.unit,
+                    doc_id=doc_id or "",
+                    page=page,
+                    source=citation,
+                )
+            )
+
 
 
 @log_action
 def _keyword_search(query: str) -> List[int]:
-    """Return chunk indices containing all words from ``query``."""
+    """Return row IDs of chunks containing all words from ``query``."""
     tokens = re.findall(r"\w+", query.lower())
     if not tokens:
         return []
@@ -626,42 +645,90 @@ def _keyword_search(query: str) -> List[int]:
 @log_action
 def search_text(query: str, top_k: int = 5) -> List[Excerpt]:
     """Return top matching text chunks for ``query`` using semantic and keyword search."""
-    kw_indices = _keyword_search(query)
+    kw_ids = _keyword_search(query)
     kw_excerpts: List[Excerpt] = []
-    for idx in kw_indices:
-        if idx < 0 or idx >= len(SEMANTIC_META):
-            continue
-        meta = SEMANTIC_META[idx]
-        kw_excerpts.append(
-            Excerpt(
-                doc_id=meta.get("doc_id", ""),
-                title=meta.get("title", ""),
-                page=meta.get("page", 0),
-                text=meta.get("text", ""),
-                distance=0.0,
-                source=meta.get("citation", ""),
+    try:
+        from milvus_client import connect_milvus, create_embeddings_collection
+
+        connect_milvus()
+        collection = create_embeddings_collection()
+    except Exception:  # pragma: no cover - optional dependency may be missing
+        collection = None
+        if kw_ids:
+            logger.info("Milvus query unavailable", exc_info=True)
+
+    if kw_ids:
+        if collection is not None:
+            expr = f"id in [{','.join(str(i) for i in kw_ids)}]"
+            docs = collection.query(
+                expr,
+                output_fields=["id", "doc_id", "title", "page", "text", "citation"],
             )
-        )
+            mapping = {int(d["id"]): d for d in docs}
+            for rid in kw_ids:
+                d = mapping.get(rid)
+                if d:
+                    kw_excerpts.append(
+                        Excerpt(
+                            doc_id=d.get("doc_id", ""),
+                            title=d.get("title", ""),
+                            page=int(d.get("page", 0)),
+                            text=d.get("text", ""),
+                            distance=0.0,
+                            source=d.get("citation", ""),
+                        )
+                    )
+        else:
+            for rid in kw_ids:
+                d = TEXT_DB.get(rid)
+                if d:
+                    kw_excerpts.append(
+                        Excerpt(
+                            doc_id=d.get("doc_id", ""),
+                            title=d.get("title", ""),
+                            page=int(d.get("page", 0)),
+                            text=d.get("text", ""),
+                            distance=0.0,
+                            source=d.get("citation", ""),
+                        )
+                    )
 
     sem_excerpts: List[Excerpt] = []
-    if SEMANTIC_INDEX is not None and faiss is not None and np is not None:
-        vec = np.array(_compute_embedding(query), dtype="float32").reshape(1, -1)
-        distances, indices = SEMANTIC_INDEX.search(vec, top_k)
-        seen = set(kw_indices)
-        for idx, dist in zip(indices[0], distances[0]):
-            if idx < 0 or idx >= len(SEMANTIC_META) or idx in seen:
+    try:
+        from milvus_client import connect_milvus, create_embeddings_collection
+
+        connect_milvus()
+        collection = create_embeddings_collection()
+
+        vec = _compute_embedding(query)
+        search_params = {"metric_type": "L2", "params": {"nprobe": 16}}
+        results = collection.search(
+            [vec],
+            "embedding",
+            param=search_params,
+            limit=top_k * 2,
+            output_fields=["id", "doc_id", "title", "page", "text", "citation"],
+        )
+
+        seen = set(kw_ids)
+        for hit in results[0]:
+            rid = int(getattr(hit, "id", 0))
+            if rid in seen:
                 continue
-            meta = SEMANTIC_META[idx]
             sem_excerpts.append(
                 Excerpt(
-                    doc_id=meta.get("doc_id", ""),
-                    title=meta.get("title", ""),
-                    page=meta.get("page", 0),
-                    text=meta.get("text", ""),
-                    distance=float(dist),
-                    source=meta.get("citation", ""),
+                    doc_id=str(hit.entity.get("doc_id", "")),
+                    title=hit.entity.get("title", ""),
+                    page=int(hit.entity.get("page", 0)),
+                    text=hit.entity.get("text", ""),
+                    distance=float(hit.distance),
+                    source=hit.entity.get("citation", ""),
                 )
             )
+            if len(sem_excerpts) >= top_k:
+                break
+    except Exception:  # pragma: no cover - optional dependency may be missing
+        pass
 
     results = kw_excerpts + sem_excerpts
     return results[:top_k]
@@ -670,22 +737,66 @@ def search_text(query: str, top_k: int = 5) -> List[Excerpt]:
 @log_action
 def search_location(name: str) -> List[Excerpt]:
     """Return text excerpts mentioning ``name`` based on NER tags."""
-    indices = LOCATION_INDEX.get(name.lower(), [])
+    ids = LOCATION_INDEX.get(name.lower(), [])
     results: List[Excerpt] = []
-    for idx in indices:
-        if 0 <= idx < len(SEMANTIC_META):
-            meta = SEMANTIC_META[idx]
-            results.append(
-                Excerpt(
-                    doc_id=meta.get("doc_id", ""),
-                    title=meta.get("title", ""),
-                    page=meta.get("page", 0),
-                    text=meta.get("text", ""),
-                    distance=0.0,
-                    source=meta.get("citation", ""),
+    if not ids:
+        return results
+    try:
+        from milvus_client import connect_milvus, create_embeddings_collection
+
+        connect_milvus()
+        collection = create_embeddings_collection()
+    except Exception:  # pragma: no cover - optional dependency may be missing
+        collection = None
+        logger.info("Milvus query unavailable", exc_info=True)
+
+    if collection is not None:
+        expr = f"id in [{','.join(str(i) for i in ids)}]"
+        docs = collection.query(
+            expr,
+            output_fields=["id", "doc_id", "title", "page", "text", "citation"],
+        )
+        mapping = {int(d["id"]): d for d in docs}
+        for rid in ids:
+            d = mapping.get(rid)
+            if d:
+                results.append(
+                    Excerpt(
+                        doc_id=d.get("doc_id", ""),
+                        title=d.get("title", ""),
+                        page=int(d.get("page", 0)),
+                        text=d.get("text", ""),
+                        distance=0.0,
+                        source=d.get("citation", ""),
+                    )
                 )
-            )
+    else:
+        for rid in ids:
+            d = TEXT_DB.get(rid)
+            if d:
+                results.append(
+                    Excerpt(
+                        doc_id=d.get("doc_id", ""),
+                        title=d.get("title", ""),
+                        page=int(d.get("page", 0)),
+                        text=d.get("text", ""),
+                        distance=0.0,
+                        source=d.get("citation", ""),
+                    )
+                )
     return results
+
+
+@log_action
+def search_images(query: str | Any, top_k: int = 5) -> List[Dict[str, Any]]:
+    """Return top matching images from Milvus for ``query``."""
+    try:
+        from milvus_client import search_images as _search_images
+
+        return _search_images(query, top_k=top_k)
+    except Exception:  # pragma: no cover - optional dependency may be missing
+        logger.info("Image search unavailable", exc_info=True)
+        return []
 
 
 @log_action
@@ -737,10 +848,10 @@ TOOLS: Dict[str, Any] = {
     "search_corpus": search_corpus,
     "geocode_place": geocode_place,
     "index_documents": index_documents,
-    "semantic_search": semantic_search,
     "search_text": search_text,
     "extract_locations": extract_locations,
     "search_location": search_location,
+    "search_images": search_images,
     "parse_distance_clues": parse_distance_clues,
     "search_distance_clues": search_distance_clues,
     "infer_relative_location": infer_relative_location,
@@ -759,10 +870,10 @@ __all__ = [
     "search_corpus",
     "geocode_place",
     "index_documents",
-    "semantic_search",
     "search_text",
     "extract_locations",
     "search_location",
+    "search_images",
     "parse_distance_clues",
     "search_distance_clues",
     "infer_relative_location",
