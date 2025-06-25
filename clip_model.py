@@ -28,18 +28,26 @@ def load_clip_model(model_name: str = "ViT-B/32", device: str = "cpu") -> Any:
     return CLIP_MODEL
 
 
-def image_embedding(path: str) -> list[float]:
-    """Return the embedding vector for an image file."""
+def compute_image_embedding(image: str | "Image.Image") -> list[float]:
+    """Return the embedding vector for ``image`` using the loaded CLIP model."""
     if clip is None or torch is None or Image is None:
         raise RuntimeError("CLIP dependencies are not installed")
     if CLIP_MODEL is None or CLIP_PREPROCESS is None:
         raise RuntimeError("CLIP model has not been loaded")
 
-    img = Image.open(path).convert("RGB")
+    if isinstance(image, str):
+        img = Image.open(image).convert("RGB")
+    else:
+        img = image.convert("RGB")
     tensor = CLIP_PREPROCESS(img).unsqueeze(0)
     with torch.no_grad():
         vec = CLIP_MODEL.encode_image(tensor)
     return vec[0].tolist()
 
 
-__all__ = ["load_clip_model", "image_embedding"]
+def image_embedding(path: str) -> list[float]:
+    """Backward-compatible wrapper for :func:`compute_image_embedding`."""
+    return compute_image_embedding(path)
+
+
+__all__ = ["load_clip_model", "compute_image_embedding", "image_embedding"]

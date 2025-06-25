@@ -259,8 +259,9 @@ Use :func:`load_clip_model` to initialize the OpenAI CLIP image encoder when the
 application starts so image embeddings can be generated:
 
 ```python
-from clip_model import load_clip_model
+from clip_model import load_clip_model, compute_image_embedding
 
 clip_model = load_clip_model()
+vec = compute_image_embedding("image.jpg")
 ```
 

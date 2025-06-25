@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 import pytest
 
-from clip_model import load_clip_model
+from clip_model import load_clip_model, compute_image_embedding
 
 
 def test_load_clip_model(monkeypatch):
@@ -29,3 +29,58 @@ def test_load_clip_model_missing(monkeypatch):
     monkeypatch.setattr("clip_model.clip", None)
     with pytest.raises(RuntimeError):
         load_clip_model()
+
+
+def test_compute_image_embedding(monkeypatch):
+    events = {}
+
+    class DummyTensor:
+        def __init__(self, label="tensor"):
+            self.label = label
+
+        def unsqueeze(self, dim):
+            events["unsqueeze"] = dim
+            return self
+
+    class DummyArray:
+        def __init__(self, arr):
+            self.arr = arr
+
+        def tolist(self):
+            return self.arr
+
+    class DummyModel:
+        def eval(self):
+            pass
+
+        def encode_image(self, tensor):
+            events["encode"] = tensor.label
+            return [DummyArray([1.0, 2.0])]
+
+    def dummy_load(name="ViT-B/32", device="cpu"):
+        return DummyModel(), lambda img: DummyTensor(f"prep-{img}")
+
+    class DummyNoGrad:
+        def __enter__(self):
+            return None
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    dummy_image = SimpleNamespace(convert=lambda mode: "img")
+
+    monkeypatch.setattr("clip_model.clip", SimpleNamespace(load=dummy_load))
+    monkeypatch.setattr(
+        "clip_model.Image",
+        SimpleNamespace(open=lambda path: dummy_image, Image=dummy_image.__class__),
+    )
+    monkeypatch.setattr("clip_model.torch", SimpleNamespace(no_grad=lambda: DummyNoGrad()))
+
+    load_clip_model()
+    vec = compute_image_embedding("foo.png")
+    assert vec == [1.0, 2.0]
+    assert events["unsqueeze"] == 0
+    assert events["encode"] == "prep-img"
+
+    vec2 = compute_image_embedding(dummy_image)
+    assert vec2 == [1.0, 2.0]
