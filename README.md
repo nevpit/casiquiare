@@ -265,3 +265,14 @@ clip_model = load_clip_model()
 vec = compute_image_embedding("image.jpg")
 ```
 
+You can then store vectors for one or more images using
+:func:`insert_image_embeddings`:
+
+```python
+from milvus_client import insert_image_embeddings
+
+insert_image_embeddings([
+    {"image_id": 1, "path": "image.jpg", "source": "scan"},
+])
+```
+

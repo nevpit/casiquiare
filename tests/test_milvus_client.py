@@ -3,6 +3,7 @@ from milvus_client import (
     connect_milvus,
     create_embeddings_collection,
     create_image_embeddings_collection,
+    insert_image_embeddings,
 )
 
 
@@ -110,4 +111,38 @@ def test_create_image_embeddings_collection(monkeypatch):
 
     assert events["name"] == "image_embeddings"
     assert events["index"]["metric_type"] == "L2"
-    assert events["fields"][2][2]["dim"] == 512
+    assert len(events["fields"]) == 4
+    assert events["fields"][2][0] == "source"
+    assert events["fields"][3][2]["dim"] == 512
+
+
+def test_insert_image_embeddings(monkeypatch):
+    inserted = {}
+
+    class DummyCollection:
+        def insert(self, data):
+            inserted["data"] = data
+
+        def flush(self):
+            inserted["flushed"] = True
+
+    monkeypatch.setattr(
+        "milvus_client.create_image_embeddings_collection", lambda: DummyCollection()
+    )
+    monkeypatch.setattr(
+        "milvus_client.compute_image_embedding", lambda img: [0.1, 0.2]
+    )
+    monkeypatch.setattr("milvus_client.connections", object())
+
+    images = [
+        {"image_id": 1, "path": "img1.jpg", "source": "scan"},
+        {"image_id": 2, "image": "img", "description": "photo"},
+    ]
+
+    coll = insert_image_embeddings(images)
+
+    assert inserted["data"][0] == [1, 2]
+    assert inserted["data"][1] == ["scan", "photo"]
+    assert inserted["data"][2] == [[0.1, 0.2], [0.1, 0.2]]
+    assert inserted.get("flushed")
+    assert isinstance(coll, DummyCollection)

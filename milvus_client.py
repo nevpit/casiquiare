@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 from typing import Any
 
+from clip_model import compute_image_embedding
+
 try:
     from pymilvus import Collection, CollectionSchema, FieldSchema, DataType, connections, utility
 except Exception:  # pragma: no cover - optional dependency may be missing
@@ -71,7 +73,7 @@ def create_embeddings_collection(
 def create_image_embeddings_collection(
     name: str = "image_embeddings", dim: int = 512, metric_type: str = "L2"
 ) -> Any:
-    """Create or retrieve a collection for image embeddings."""
+    """Create or retrieve a collection for image embeddings with metadata."""
     if connections is None:
         raise RuntimeError("pymilvus is not installed")
 
@@ -81,6 +83,7 @@ def create_image_embeddings_collection(
     fields = [
         FieldSchema(name="id", dtype=DataType.INT64, is_primary=True, auto_id=True),
         FieldSchema(name="image_id", dtype=DataType.INT64),
+        FieldSchema(name="source", dtype=DataType.VARCHAR, max_length=512),
         FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=dim),
     ]
     schema = CollectionSchema(fields)
@@ -94,8 +97,49 @@ def create_image_embeddings_collection(
     return collection
 
 
+def insert_image_embeddings(
+    images: list[dict[str, Any]],
+    *,
+    collection: Any | None = None,
+) -> Any:
+    """Insert image vectors into the Milvus image collection.
+
+    Each item in ``images`` should provide ``image_id`` and either ``path`` or
+    ``image`` along with an optional ``source`` or ``description`` field.
+    """
+
+    if connections is None:
+        raise RuntimeError("pymilvus is not installed")
+
+    if collection is None:
+        collection = create_image_embeddings_collection()
+
+    ids: list[int] = []
+    sources: list[str] = []
+    vectors: list[list[float]] = []
+
+    for item in images:
+        img_id = item.get("image_id") or item.get("id")
+        if img_id is None:
+            continue
+        img = item.get("path") or item.get("image")
+        if img is None:
+            continue
+        vec = compute_image_embedding(img)
+        ids.append(int(img_id))
+        sources.append(str(item.get("source") or item.get("description", "")))
+        vectors.append(vec)
+
+    if vectors:
+        collection.insert([ids, sources, vectors])
+        collection.flush()
+
+    return collection
+
+
 __all__ = [
     "connect_milvus",
     "create_embeddings_collection",
     "create_image_embeddings_collection",
+    "insert_image_embeddings",
 ]
