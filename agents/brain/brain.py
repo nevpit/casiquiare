@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field, asdict, is_dataclass
 from typing import Any, Dict, Optional, Sequence, get_origin
 import json
 
@@ -29,6 +29,17 @@ except Exception:  # pragma: no cover - library may be missing
 
 
 logger = setup_logger("casiquiare.brain")
+
+
+def _to_jsonable(obj: Any) -> Any:
+    """Recursively convert dataclasses and other objects to basic Python types."""
+    if is_dataclass(obj):
+        obj = asdict(obj)
+    if isinstance(obj, dict):
+        return {k: _to_jsonable(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple, set)):
+        return [_to_jsonable(v) for v in obj]
+    return obj
 
 
 @dataclass
@@ -191,7 +202,7 @@ class Brain:
                             "role": "tool",
                             "tool_call_id": call.id,
                             "name": name,
-                            "content": json.dumps(result),
+                            "content": json.dumps(_to_jsonable(result)),
                         }
                     )
                 continue
@@ -221,7 +232,7 @@ class Brain:
         random_state: Optional[int] = None,
         model_path: str = "brain_model.joblib",
         model_type: str = "random_forest",
-    ) -> ModelResult:
+    ) -> Dict[str, Any]:
         """Train a model and store the summary in ``world_state``.
 
         Parameters mirror :func:`agents.brain.brain_tools.train_model`.
@@ -244,9 +255,9 @@ class Brain:
         logger.info("Stored latest_model in world_state")
         logger.debug("Model metrics: %s", info.metrics)
         log_message("brain", "train_model", asdict(info))
-        return info
+        return asdict(info)
 
-    def load_model(self, model_path: str) -> ModelResult:
+    def load_model(self, model_path: str) -> Dict[str, Any]:
         """Reload a model from disk and store it in ``world_state``."""
         model = brain_tools.load_model(model_path)
         importances = (
@@ -264,7 +275,7 @@ class Brain:
         world_state["latest_model"] = asdict(info)
         logger.info("Loaded model from %s", model_path)
         log_message("brain", "load_model", asdict(info))
-        return info
+        return asdict(info)
 
     def score_likelihood(self, model: Any, data: Sequence[Sequence[float]]):
         """Score data and record the raw scores."""
@@ -281,7 +292,7 @@ class Brain:
         *,
         grid_size: float = 0.01,
         top_n: int = 5,
-    ) -> PredictionResult:
+    ) -> Dict[str, Any]:
         """Predict site likelihoods and update ``world_state``."""
         result = brain_tools.predict_sites(
             model,
@@ -297,7 +308,7 @@ class Brain:
         world_state["latest_prediction"] = asdict(pred)
         logger.info("Stored latest_prediction map in world_state")
         log_message("brain", "predict_sites", asdict(pred))
-        return pred
+        return asdict(pred)
 
     def validate_features(self, features: Sequence[Dict[str, Any]]):
         """Validate features and store the results."""
@@ -314,7 +325,7 @@ class Brain:
         eps: float = 100.0,
         min_samples: int = 2,
         area_id: Optional[str] = None,
-    ) -> ClusterResult:
+    ) -> Dict[str, Any]:
         """Cluster geographic features and record the cluster summary."""
         result = brain_tools.cluster_features(features, eps=eps, min_samples=min_samples)
         clusters = world_state.setdefault("clusters", {})
@@ -326,7 +337,7 @@ class Brain:
         world_state["clusters"] = clusters
         logger.info("Stored clusters summary in world_state")
         log_message("brain", "cluster_features", asdict(cluster))
-        return cluster
+        return asdict(cluster)
 
     def exec_code(
         self,
@@ -334,7 +345,7 @@ class Brain:
         local_vars: Optional[Dict[str, Any]] = None,
         *,
         timeout: int = 5,
-    ) -> ExecutionResult:
+    ) -> Dict[str, Any]:
         """Execute code via :func:`agents.brain.brain_tools.exec_code`."""
         result = brain_tools.exec_code(code, local_vars, timeout=timeout)
         exec_res = ExecutionResult(
@@ -347,7 +358,7 @@ class Brain:
         world_state["last_exec"] = asdict(exec_res)
         logger.info("Stored last_exec result in world_state")
         log_message("brain", "exec_code", asdict(exec_res))
-        return exec_res
+        return asdict(exec_res)
 
     def get_results(self, key: Optional[str] = None) -> Any:
         """Return stored results from ``world_state``."""

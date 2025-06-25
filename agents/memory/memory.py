@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field, asdict, is_dataclass
 from typing import Any, Dict, Optional, Sequence, get_origin
 import json
 
@@ -20,6 +20,17 @@ except Exception:  # pragma: no cover - library may be missing
 
 
 logger = setup_logger("casiquiare.memory")
+
+
+def _to_jsonable(obj: Any) -> Any:
+    """Recursively convert dataclasses and nested objects to Python primitives."""
+    if is_dataclass(obj):
+        obj = asdict(obj)
+    if isinstance(obj, dict):
+        return {k: _to_jsonable(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple, set)):
+        return [_to_jsonable(v) for v in obj]
+    return obj
 
 
 @dataclass
@@ -190,7 +201,7 @@ class MemoryKeeper:
                             "role": "tool",
                             "tool_call_id": call.id,
                             "name": name,
-                            "content": json.dumps(result),
+                            "content": json.dumps(_to_jsonable(result)),
                         }
                     )
                 continue
@@ -295,7 +306,7 @@ class MemoryKeeper:
             [asdict(r) for r in results],
         )
         logger.info("search_text returned %d results", len(results))
-        return results
+        return [asdict(r) for r in results]
 
     def search_images(self, query: str | "memory_tools.Image.Image", top_k: int = 5):
         """Search image embeddings and log the results."""
@@ -319,7 +330,7 @@ class MemoryKeeper:
             [asdict(e) for e in ents],
         )
         logger.info("extract_locations found %d entities", len(ents))
-        return ents
+        return [asdict(e) for e in ents]
 
     def search_location(self, name: str):
         from world_state import world_state, log_message
@@ -333,7 +344,7 @@ class MemoryKeeper:
             [asdict(r) for r in results],
         )
         logger.info("search_location returned %d results", len(results))
-        return results
+        return [asdict(r) for r in results]
 
     def search_distance_clues(self, name: str):
         from world_state import world_state, log_message
@@ -347,7 +358,7 @@ class MemoryKeeper:
             [asdict(c) for c in results],
         )
         logger.info("search_distance_clues returned %d clues", len(results))
-        return results
+        return [asdict(c) for c in results]
 
     def infer_relative_location(self, clue: "memory_tools.DistanceClue"):
         from world_state import world_state, log_message
@@ -369,7 +380,7 @@ class MemoryKeeper:
             asdict(loc) if loc else None,
         )
         logger.info("infer_relative_location result=%s", asdict(loc) if loc else None)
-        return loc
+        return asdict(loc) if loc else None
 
     def geocode_place(self, name: str):
         from world_state import world_state, log_message

@@ -29,5 +29,5 @@ def test_brain_updates_world_state(tmp_path):
             random_state=0,
             model_path=str(tmp_path / "model.joblib"),
         )
-        assert res.model_type == "RandomForestClassifier"
+        assert res["model_type"] == "RandomForestClassifier"
         assert world_state["latest_model"]["model_type"] == "RandomForestClassifier"

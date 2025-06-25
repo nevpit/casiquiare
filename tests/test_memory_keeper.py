@@ -64,8 +64,8 @@ def test_search_text_basic():
     mk.index_documents(docs)
     results = mk.search_text("Amazon basin")
     if milvus_client.connections is not None:
-        assert results and results[0].doc_id == "d1"
-        assert results[0].source
+        assert results and results[0]["doc_id"] == "d1"
+        assert results[0]["source"]
 
 
 def test_search_text_keyword():
@@ -82,8 +82,8 @@ def test_search_text_keyword():
     ]
     mk.index_documents(docs)
     results = mk.search_text("Yucuru")
-    assert results and results[0].doc_id == "d2"
-    assert results[0].source
+    assert results and results[0]["doc_id"] == "d2"
+    assert results[0]["source"]
 
 
 def test_search_text_updates_world_state(monkeypatch):
@@ -97,7 +97,7 @@ def test_search_text_updates_world_state(monkeypatch):
 
     res = mk.search_text("foo")
     assert world_state.get("search_text_results")
-    assert res and res[0].doc_id == "d1"
+    assert res and res[0]["doc_id"] == "d1"
     msgs = world_state.get("messages", [])
     assert any(m["type"] == "search_text" for m in msgs)
 
@@ -139,8 +139,8 @@ def test_search_location_basic():
     ]
     mk.index_documents(docs)
     results = mk.search_location("Yucuru")
-    assert results and results[0].doc_id == "d3"
-    assert results[0].source
+    assert results and results[0]["doc_id"] == "d3"
+    assert results[0]["source"]
 
 
 def test_parse_distance_clues_basic():

@@ -47,7 +47,7 @@ def test_brain_synthesizer_integration(tmp_path):
             model_path=str(tmp_path / "model.joblib"),
         )
         assert world_state["latest_model"]["model_type"] == "RandomForestClassifier"
-        brain.predict_sites(model.model, [[0.5, 0.5], [0.2, 0.1]], top_n=1)
+        brain.predict_sites(model["model"], [[0.5, 0.5], [0.2, 0.1]], top_n=1)
         assert "scores_map" in world_state["latest_prediction"]
 
     messages = world_state.get("messages", [])
