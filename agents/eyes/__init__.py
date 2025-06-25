@@ -6,7 +6,7 @@ import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Tuple, Iterable, Optional
 
-from . import tools, cli
+from . import eyes_tools as tools, cli
 
 try:
     from openai import OpenAI
@@ -21,10 +21,24 @@ class Eyes:
 
     model: str = "gpt-4-turbo"
     tools: Dict[str, Any] = field(init=False, default_factory=dict)
+    system_prompt: str = field(init=False, default="")
 
     def __post_init__(self) -> None:
         if client is not None:
             self.tools = tools.TOOLS
+            self.system_prompt = (
+                "You are the Eyes agent, the remote-sensing & GIS lead for the "
+                "Amazon archaeology project. Analyse LiDAR, satellite and raster "
+                "data to flag potential sites and provide strictly factual "
+                "observations with no speculation. When you return a natural-"
+                "language summary, it must be a JSON object in the form "
+                "{\\\"agent\\\": \\\"eyes\\\", \\\"type\\\": <summary_type>, "
+                "\\\"content\\\": <text>} wrapped in a single markdown block."
+            )
+
+    def set_system_prompt(self, prompt: str) -> None:
+        """Override the default system prompt."""
+        self.system_prompt = prompt
 
     # Thin wrappers around utility functions ---------------------------------
 
@@ -109,14 +123,7 @@ class Eyes:
         if client is None:
             raise RuntimeError("OpenAI SDK is not available.")
         messages = [
-            {
-                "role": "system",
-                "content": (
-                    "You are the Eyes agent, an analytical assistant that "
-                    "provides factual observations from remote sensing data. "
-                    "Do not speculate or provide interpretations."
-                ),
-            },
+            {"role": "system", "content": self.system_prompt},
             {"role": "user", "content": findings},
         ]
         response = client.chat.completions.create(model=self.model, messages=messages)
@@ -124,4 +131,4 @@ class Eyes:
 
 
 # re-export tools module for convenience
-__all__ = ["Eyes", "tools", "cli"]
+__all__ = ["Eyes", "tools", "eyes_tools", "cli"]

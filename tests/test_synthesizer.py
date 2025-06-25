@@ -1,4 +1,5 @@
 from agents.synthesizer import Synthesizer
+import json
 
 
 def test_sub_agent_instantiation():
@@ -13,8 +14,9 @@ def test_tool_registration():
     syn = Synthesizer()
     assert "brain_train_model" in syn.tools
     assert syn.tools["brain_train_model"].__self__ is syn.brain
+    assert "brain_exec_code" in syn.tools
     assert "eyes_scan_area" in syn.tools
-    from agents.eyes import tools as eyes_tools
+    from agents.eyes import eyes_tools as eyes_tools
     assert syn.tools["eyes_scan_area"] is eyes_tools.scan_area
 
 
@@ -194,8 +196,10 @@ def test_end_to_end_workflow(monkeypatch):
         set_value("search_results", [query])
         return [query]
 
-    def stub_context(dem, land_cover, soil, distance, climate, context_layers, lat, lon):
-        set_value("context_env", {"ndvi": 0.5})
+    def stub_context(
+        dem, land_cover, soil, distance, climate, context_layers, lat, lon
+    ):
+        set_value("context_environment", {"ndvi": 0.5})
         return {"ndvi": 0.5}
 
     syn.tools = {
@@ -211,6 +215,48 @@ def test_end_to_end_workflow(monkeypatch):
     assert get_value("eyes_result")
     assert get_value("clusters")
     assert get_value("search_results")
-    assert get_value("context_env")
+    assert get_value("context_environment")
     msgs = world_state.get("messages", [])
     assert any(m["type"] == "final_output" for m in msgs)
+
+
+def test_max_steps_fallback(monkeypatch):
+    """Synthesizer returns structured JSON when step limit is hit."""
+    from world_state import reset, world_state
+
+    reset()
+
+    class DummyClient:
+        def __init__(self):
+            self.chat = self.Chat(self)
+
+        class Chat:
+            def __init__(self, outer):
+                self.outer = outer
+                self.completions = self
+
+            def create(self, model, messages, tools=None, tool_choice=None):
+                class ToolFunction:
+                    name = "memory_search_corpus"
+                    arguments = '{"query": "x"}'
+
+                class ToolCall:
+                    id = "1"
+                    function = ToolFunction()
+
+                class Message:
+                    content = ""
+                    tool_calls = [ToolCall()]
+
+                class Completion:
+                    choices = [type("C", (), {"message": Message()})]
+
+                return Completion()
+
+    monkeypatch.setattr("agents.synthesizer.synthesizer.client", DummyClient())
+
+    syn = Synthesizer()
+    answer = syn.plan_and_act("Stuck loop", max_steps=2)
+    assert json.loads(answer)["reason"] == "max_steps_exceeded"
+    logs = world_state.get("messages", [])
+    assert any(m["type"] == "final_output" for m in logs)

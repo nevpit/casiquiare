@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any, Dict, List, get_origin
 import inspect
 import json
 
 from log_config import setup_logger
-from agents.eyes import Eyes, tools as eyes_tools
+from agents.eyes import Eyes, eyes_tools as eyes_tools
 from agents.brain import Brain
 from agents.memory import MemoryKeeper
 from agents.context import ContextEngine
@@ -70,9 +70,9 @@ class Synthesizer:
             "brain_score_likelihood": self.brain.score_likelihood,
             "brain_validate_features": self.brain.validate_features,
             "brain_cluster_features": self.brain.cluster_features,
+            "brain_exec_code": self.brain.exec_code,
             # Memory Keeper tools
             "memory_search_corpus": self.memory_keeper.search_corpus,
-            "memory_semantic_search": self.memory_keeper.semantic_search,
             "memory_geocode_place": self.memory_keeper.geocode_place,
             "memory_extract_locations": self.memory_keeper.extract_locations,
             # Context Engine tools
@@ -132,10 +132,18 @@ class Synthesizer:
                 sig = inspect.signature(func)
                 for p_name, param in sig.parameters.items():
                     p_type = "string"
-                    if param.annotation in (int, float, bool):
-                        p_type = "integer" if param.annotation is int else (
-                            "number" if param.annotation is float else "boolean"
+                    ann = param.annotation
+                    origin = get_origin(ann)
+                    if origin is not None:
+                        ann = origin
+                    if ann in (int, float, bool):
+                        p_type = (
+                            "integer" if ann is int else ("number" if ann is float else "boolean")
                         )
+                    elif ann is list:
+                        p_type = "array"
+                    elif ann is dict:
+                        p_type = "object"
                     params[p_name] = {"type": p_type}
                     if param.default is inspect._empty:
                         required.append(p_name)
@@ -157,7 +165,7 @@ class Synthesizer:
             )
         return specs
 
-    def plan_and_act(self, goal: str, *, max_steps: int = 3) -> str:
+    def plan_and_act(self, goal: str, *, max_steps: int = 6) -> str:
         """Use LLM function calling to plan and execute tools."""
 
         if client is None:
@@ -230,7 +238,11 @@ class Synthesizer:
             log_message("synthesizer", "final_output", answer)
             return answer
 
-        return ""
+        timeout = json.dumps({"status": "incomplete", "reason": "max_steps_exceeded"})
+        set_value("synth_answer", timeout)
+        log_message("synthesizer", "conclusion", timeout)
+        log_message("synthesizer", "final_output", timeout)
+        return timeout
 
 
 __all__ = ["Synthesizer"]

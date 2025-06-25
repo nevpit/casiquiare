@@ -14,7 +14,7 @@ def test_imports():
     raster_spec.loader.exec_module(raster_module)  # type: ignore[arg-type]
     sys.modules["io_utils.raster"] = raster_module
 
-    importlib.import_module("agents.eyes.tools")
+    importlib.import_module("agents.eyes.eyes_tools")
 
     # Import io_utils.lidar explicitly from file to ensure local module is used
     lidar_path = Path(__file__).resolve().parents[1] / "io_utils" / "lidar.py"
@@ -40,3 +40,5 @@ def test_imports():
     importlib.import_module("detection.sat")
     importlib.import_module("detection.ml_filter")
     importlib.import_module("io_utils.raster")
+    importlib.import_module("milvus_client")
+    importlib.import_module("clip_model")

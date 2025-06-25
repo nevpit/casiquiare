@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-import agents.eyes.tools as eyes_tools
+import agents.eyes.eyes_tools as eyes_tools
 
 
 def test_analyze_satellite_image_runtime(tmp_path):

@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field, asdict
-from typing import Any, Dict, Optional, Sequence
+from typing import Any, Dict, Optional, Sequence, get_origin
+import json
 
 from log_config import setup_logger
 
@@ -66,6 +67,142 @@ class Brain:
         reply = response.choices[0].message.content.strip()
         log_message("brain", "chat", reply)
         return reply
+
+    # ------------------------------------------------------------------
+    # Lightweight planning via function calling
+
+    def _tool_specs(self) -> list[dict[str, Any]]:
+        """Return OpenAI tool specs for the registered tools."""
+        import inspect
+
+        specs: list[dict[str, Any]] = []
+        for name, func in self.tools.items():
+            doc_lines = (func.__doc__ or "").strip().splitlines()
+            doc = doc_lines[0] if doc_lines else ""
+            params: dict[str, Any] = {}
+            required: list[str] = []
+            try:
+                sig = inspect.signature(func)
+                for p_name, param in sig.parameters.items():
+                    p_type = "string"
+                    ann = param.annotation
+                    origin = get_origin(ann)
+                    if origin is not None:
+                        ann = origin
+                    if ann in (int, float, bool):
+                        p_type = (
+                            "integer"
+                            if ann is int
+                            else ("number" if ann is float else "boolean")
+                        )
+                    elif ann is list:
+                        p_type = "array"
+                    elif ann is dict:
+                        p_type = "object"
+                    params[p_name] = {"type": p_type}
+                    if param.default is inspect._empty:
+                        required.append(p_name)
+            except (TypeError, ValueError):
+                pass
+            specs.append(
+                {
+                    "type": "function",
+                    "function": {
+                        "name": name,
+                        "description": doc,
+                        "parameters": {
+                            "type": "object",
+                            "properties": params,
+                            "required": required,
+                        },
+                    },
+                }
+            )
+        return specs
+
+    def use_tool(self, name: str, *args: Any, **kwargs: Any) -> Any:
+        """Invoke a registered tool and log the action and result."""
+        from world_state import set_value
+
+        if name not in self.tools:
+            raise KeyError(f"Tool {name} not registered")
+        log_message("brain", "delegate", {"tool": name})
+        result = self.tools[name](*args, **kwargs)
+        set_value(f"brain_{name}", result)
+        log_message("brain", "result", {"tool": name})
+        return result
+
+    def plan_and_act(self, goal: str, *, max_steps: int = 2) -> str:
+        """Autonomously decide to run tools such as ``exec_code``."""
+
+        if client is None:
+            raise RuntimeError("OpenAI SDK is not available.")
+
+        from world_state import set_value
+
+        log_message("brain", "plan_start", {"goal": goal})
+
+        messages = [
+            {"role": "system", "content": self.system_prompt},
+            {"role": "user", "content": goal},
+        ]
+        tools = self._tool_specs()
+
+        step = 0
+        while step < max_steps:
+            response = client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                tools=tools,
+                tool_choice="auto",
+            )
+            msg = response.choices[0].message
+            step += 1
+
+            if getattr(msg, "tool_calls", None):
+                messages.append(
+                    {
+                        "role": "assistant",
+                        "content": msg.content or "",
+                        "tool_calls": [
+                            {
+                                "id": tc.id,
+                                "function": {
+                                    "name": tc.function.name,
+                                    "arguments": tc.function.arguments,
+                                },
+                            }
+                            for tc in msg.tool_calls
+                        ],
+                    }
+                )
+                for call in msg.tool_calls:
+                    name = call.function.name
+                    try:
+                        args = json.loads(call.function.arguments or "{}")
+                    except Exception:
+                        args = {}
+                    try:
+                        result = self.use_tool(name, **args)
+                    except Exception as exc:  # pragma: no cover - runtime safety
+                        result = {"error": str(exc)}
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": call.id,
+                            "name": name,
+                            "content": json.dumps(result),
+                        }
+                    )
+                continue
+
+            answer = msg.content or ""
+            set_value("brain_answer", answer)
+            log_message("brain", "conclusion", answer)
+            log_message("brain", "final_output", answer)
+            return answer
+
+        return ""
 
     # ------------------------------------------------------------------
     # Wrappers around tool functions that also update the world_state

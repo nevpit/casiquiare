@@ -7,7 +7,7 @@ import logging
 from pathlib import Path
 
 from io_utils.raster import load_raster
-from .tools import scan_area, save_snippets
+from .eyes_tools import scan_area, save_snippets
 from output import save_geojson
 from log_config import setup_logger
 
