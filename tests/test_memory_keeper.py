@@ -102,6 +102,38 @@ def test_search_text_keyword():
     assert results[0].source
 
 
+def test_search_text_updates_world_state(monkeypatch):
+    reset()
+    mk = MemoryKeeper()
+    monkeypatch.setattr(
+        memory_tools,
+        "search_text",
+        lambda q, top_k=5: [memory_tools.Excerpt(doc_id="d1", title="doc", page=0, text="t", source="test")],
+    )
+
+    res = mk.search_text("foo")
+    assert world_state.get("search_text_results")
+    assert res and res[0].doc_id == "d1"
+    msgs = world_state.get("messages", [])
+    assert any(m["type"] == "search_text" for m in msgs)
+
+
+def test_search_images_updates_world_state(monkeypatch):
+    reset()
+    mk = MemoryKeeper()
+    monkeypatch.setattr(
+        memory_tools,
+        "search_images",
+        lambda q, top_k=5: [{"image_id": 1, "source": "scan"}],
+    )
+
+    res = mk.search_images("img")
+    assert world_state.get("search_image_results") == [{"image_id": 1, "source": "scan"}]
+    assert res and res[0]["image_id"] == 1
+    msgs = world_state.get("messages", [])
+    assert any(m["type"] == "search_images" for m in msgs)
+
+
 def test_extract_locations_basic():
     ents = memory_tools.extract_locations("The village of Yucuru sat by the river.")
     assert isinstance(ents, list)

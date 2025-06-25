@@ -308,6 +308,17 @@ class MemoryKeeper:
         logger.info("search_text returned %d results", len(results))
         return results
 
+    def search_images(self, query: str | "memory_tools.Image.Image", top_k: int = 5):
+        """Search image embeddings and log the results."""
+        from world_state import world_state, log_message
+
+        logger.info("search_images query=%s", query)
+        results = memory_tools.search_images(query, top_k=top_k)
+        world_state["search_image_results"] = results
+        log_message("memory", "search_images", results)
+        logger.info("search_images returned %d results", len(results))
+        return results
+
     def extract_locations(self, text: str):
         from world_state import log_message
 
