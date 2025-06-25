@@ -27,3 +27,4 @@ milvus:
   host: localhost            # Milvus server host
   port: 19530                # Milvus server port
   collection: text_embeddings # collection name for embeddings
+  image_collection: image_embeddings # collection for image embeddings
