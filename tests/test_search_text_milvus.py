@@ -62,4 +62,4 @@ def test_search_text_uses_milvus(monkeypatch):
     assert events.get('limit') == 10
     assert 'doc_id' in events.get('fields', [])
     assert 'text' in events.get('fields', [])
-    assert res and res[0].doc_id == 'd1'
+    assert res and res[0]["doc_id"] == 'd1'

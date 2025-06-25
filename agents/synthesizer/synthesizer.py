@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict, is_dataclass
 from typing import Any, Dict, List, get_origin
 import inspect
 import json
@@ -23,6 +23,17 @@ except Exception:  # pragma: no cover - library may be missing
     client = None
 
 logger = setup_logger("casiquiare.synthesizer")
+
+
+def _to_jsonable(obj: Any) -> Any:
+    """Recursively convert dataclasses and nested objects to basic Python types."""
+    if is_dataclass(obj):
+        obj = asdict(obj)
+    if isinstance(obj, dict):
+        return {k: _to_jsonable(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple, set)):
+        return [_to_jsonable(v) for v in obj]
+    return obj
 
 
 @dataclass
@@ -227,7 +238,7 @@ class Synthesizer:
                             "role": "tool",
                             "tool_call_id": call.id,
                             "name": name,
-                            "content": json.dumps(result),
+                            "content": json.dumps(_to_jsonable(result)),
                         }
                     )
                 continue
