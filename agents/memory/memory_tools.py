@@ -734,6 +734,18 @@ def search_location(name: str) -> List[Excerpt]:
 
 
 @log_action
+def search_images(query: str | Any, top_k: int = 5) -> List[Dict[str, Any]]:
+    """Return top matching images from Milvus for ``query``."""
+    try:
+        from milvus_client import search_images as _search_images
+
+        return _search_images(query, top_k=top_k)
+    except Exception:  # pragma: no cover - optional dependency may be missing
+        logger.info("Image search unavailable", exc_info=True)
+        return []
+
+
+@log_action
 def search_distance_clues(ref_place: str) -> List[DistanceClue]:
     """Return stored distance clues referencing ``ref_place``."""
     return [c for c in DISTANCE_CLUES if c.ref_place.lower() == ref_place.lower()]
@@ -786,6 +798,7 @@ TOOLS: Dict[str, Any] = {
     "search_text": search_text,
     "extract_locations": extract_locations,
     "search_location": search_location,
+    "search_images": search_images,
     "parse_distance_clues": parse_distance_clues,
     "search_distance_clues": search_distance_clues,
     "infer_relative_location": infer_relative_location,
@@ -808,6 +821,7 @@ __all__ = [
     "search_text",
     "extract_locations",
     "search_location",
+    "search_images",
     "parse_distance_clues",
     "search_distance_clues",
     "infer_relative_location",

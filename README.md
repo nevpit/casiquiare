@@ -292,6 +292,11 @@ Images can be queried in a similar way using :func:`search_images`:
 from milvus_client import search_images
 
 matches = search_images("artifact.jpg", top_k=5)
+
+# Alternatively via the Memory Keeper helper
+from agents.memory import memory_tools
+
+matches2 = memory_tools.search_images("ancient pot", top_k=3)
 ```
 
 The function accepts either an image path/PIL object or a text query and returns

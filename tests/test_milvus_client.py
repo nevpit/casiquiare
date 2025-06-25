@@ -188,3 +188,13 @@ def test_search_images(monkeypatch, tmp_path):
     assert "image_id" in events["fields"]
     assert res1 and res1[0]["image_id"] == 7
     assert res2 and res2[0]["image_id"] == 7
+
+    # wrapper via memory_tools
+    monkeypatch.setattr(
+        "milvus_client.search_images",
+        lambda q, top_k=5, collection=None: [{"image_id": 42, "source": "wrapper"}],
+    )
+    from agents.memory import memory_tools
+
+    wrapper_res = memory_tools.search_images("q")
+    assert wrapper_res and wrapper_res[0]["image_id"] == 42
