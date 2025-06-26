@@ -599,8 +599,16 @@ def index_documents(docs: List[Dict[str, Any]], chunk_size: int = 500) -> None:
         ids = list(range(NEXT_ID, NEXT_ID + len(embeddings)))
         NEXT_ID += len(embeddings)
 
-    for rid, tokens, locs, clues, doc_id, page, citation, text in zip(
-        ids, tokens_list, locs_list, clues_list, doc_ids, pages, citations, texts
+    for rid, tokens, locs, clues, doc_id, title, page, citation, text in zip(
+        ids,
+        tokens_list,
+        locs_list,
+        clues_list,
+        doc_ids,
+        titles,
+        pages,
+        citations,
+        texts,
     ):
         TEXT_DB[rid] = {
             "doc_id": doc_id,
