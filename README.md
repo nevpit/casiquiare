@@ -1,303 +1,331 @@
+<div align="center">
+
 # casiquiare
-Researching novel methods to help archeological efforts in the Amazon
 
-## Eyes agent utilities
+**A multi-agent AI system for archaeological discovery in the Amazon.**
 
-Tools for the Eyes agent live in `agents/eyes/eyes_tools.py`. These helpers handle
-LiDAR processing, raster inspection, coordinate transforms, and shape
-detection. They are callable directly or via `Eyes.tools` and wrapped as
-methods on the `Eyes` agent. The shape detection logic now resides in the
-`detection` package and is re-exported for convenience.
+Fusing LiDAR, satellite imagery, historical archives, and environmental data
+to surface likely pre-Columbian settlement sites.
 
-The agent is instructed with a system prompt defining its persona as the
-Remote-Sensing & GIS Lead. Any natural-language summary returned by the Eyes
-agent is formatted as JSON:
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-1f1f1f.svg?style=flat-square)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.12-1f1f1f.svg?style=flat-square)](requirements.txt)
+[![Status](https://img.shields.io/badge/status-research-1f1f1f.svg?style=flat-square)](#status)
 
-```json
-{"agent": "eyes", "type": "summary", "content": "<text>"}
-```
-and the JSON is wrapped inside a single markdown block.
+</div>
 
-New tools focus on identifying vegetation or soil anomalies with Sentinel-2
-multi-spectral imagery. The helper `io_utils.raster.load_raster` loads these rasters
-with their coordinate metadata intact for downstream analysis. `analyze_satellite_image`
-optionally computes spectral indices like NDVI and NDWI for vegetation-anomaly
-detection.
+---
 
-The `detect_shapes` function scans a hillshade or local relief image for
-geometric forms and reports their approximate size. Supplying the raster
-profile allows the results to be expressed in meters so features outside the
-50–300 m range can be filtered out. The dilation kernel used when
-extracting edges and the contour size limits are exposed as parameters so
-you can tune detection sensitivity to each dataset.
+> The **Casiquiare** is a natural canal that links the Orinoco and Amazon river
+> systems — a rare hydrological bridge between two great basins. This project
+> takes the same name: a bridge between disciplines that rarely share a
+> pipeline — remote sensing, machine learning, ethnohistory, and
+> paleoecology — pointed at a single question.
 
-The lower-level `detect_lines` helper extracts straight line segments from a
-binary edge image using the Hough transform.
+## The question
 
-`merge_detections` combines LiDAR and satellite candidates when their
-centroids fall within 25 m, helping reduce duplicates across sensors.
-`fuse_score_detections` builds on this by merging detections and immediately
-scoring them with a trained model.
+Much of the pre-Columbian Amazon was inhabited, engineered, and shaped by
+people. Their traces — mounds, ring ditches, geoglyphs, raised fields, causeways —
+survive under canopy and are increasingly visible to LiDAR and multispectral
+sensors. The signal is faint, the search space is continental, and the ground
+truth is scattered across colonial chronicles, indigenous oral tradition, and
+ecological records.
 
-Utility modules under `processing` extend the toolkit with low-level I/O helpers.
+**casiquiare** treats site prospection as a coordination problem. No single
+model reads terrain, history, and ecology at once — so instead of one model, it
+runs a small team of specialists that each read one kind of evidence and hand
+their findings to the next.
 
-The `write_geotiff` function in `processing/lidar.py` saves an array to a
-GeoTIFF file using a provided rasterio profile so the CRS and transform are
-preserved. LiDAR file readers are provided in `io_utils/lidar.py`.
+## The team
 
-`lidar_tile_dtm`, `lidar_feature_detection` and `scan_lidar_area` can optionally
-write their intermediate rasters to disk. Pass ``out_dir`` to specify an output
-folder and set ``return_paths=True`` to receive file paths instead of NumPy
-arrays.
+Five specialist agents, coordinated by one orchestrator. Each owns a slice of
+the evidence, exposes its capabilities as callable tools, and writes its
+findings to a shared world state. Personas and skill stacks are defined in
+[`AGENTS.md`](AGENTS.md).
 
-Additional helpers such as `load_laz`, `generate_lrm`, `generate_hillshade`, and
-`build_dtm` expose low-level I/O and terrain modelling capabilities through the
-Eyes toolkit.
+| Agent | Persona | Reads | Produces |
+|-------|---------|-------|----------|
+| **Synthesizer** | Integrative archaeologist & orchestrator | Everything | Ranked site-candidate shortlists, research direction |
+| **Eyes** | Remote-sensing & GIS lead | LiDAR, Sentinel-2 | Geometric anomalies → GeoJSON features |
+| **Brain** | Data engineer & ML modeller | Feature tables | Site-likelihood scores, settlement clusters |
+| **Memory Keeper** | Ethno-historian & knowledge curator | Historical texts, images | Geocoded clues, toponym concordances |
+| **Context Engine** | Environmental & geo-archaeological analyst | DEM, land cover, climate | Environmental suitability summaries |
 
-Use `save_snippets` to crop 256 × 256 PNG images around features returned
-by `detect_shapes` for quick visual inspection. Detection results can be
-saved with `output.serialize_features` or exported as a GeoJSON
-`FeatureCollection` using `output.save_geojson`.
+Every agent is a small dataclass wrapping a persona (system prompt), a tool
+registry, and an OpenAI function-calling loop (`plan_and_act`). Agents can be
+driven programmatically (call a tool directly) or autonomously (hand the LLM a
+goal and let it choose tools). If the OpenAI SDK or a heavy geospatial
+dependency is missing, the agent degrades gracefully rather than crashing —
+tools that can run, run.
 
-`scan_tiles_concurrent` leverages `concurrent.futures` to run `scan_area` on
-multiple raster tiles in parallel, returning the detections in input order.
+## How it fits together
 
-## Optional dependencies
+```mermaid
+flowchart TD
+    subgraph inputs [Evidence]
+        L["LiDAR tiles<br/>.laz"]
+        S["Sentinel-2<br/>rasters"]
+        H["Historical texts<br/>& imagery"]
+        E["DEM / land cover /<br/>climate / soil"]
+    end
 
-Some advanced features, such as generating hillshades and local relief models,
-rely on `scipy` and the `gdal` library (available as the `osgeo` module). Install
-these packages alongside the standard requirements if you need the full
-functionality of the processing utilities.
+    subgraph agents [Agents]
+        EY["Eyes<br/>remote sensing"]
+        MK["Memory Keeper<br/>ethnohistory"]
+        CX["Context Engine<br/>environment"]
+        BR["Brain<br/>ML modelling"]
+        SY["Synthesizer<br/>orchestrator"]
+    end
 
-## Programmatic usage examples
+    WS[("world_state<br/>shared memory")]
 
-Each helper in `agents/eyes/eyes_tools.py` can be imported and called directly.  Below
-is a minimal example demonstrating all available tools:
+    L --> EY
+    S --> EY
+    H --> MK
+    E --> CX
 
-```python
-from agents.eyes import eyes_tools as eyes
+    EY -->|features| WS
+    MK -->|geocoded clues| WS
+    CX -->|suitability| WS
+    WS --> BR
+    BR -->|scores + clusters| WS
 
-# Load point cloud arrays from a LiDAR tile
-arrays = eyes.analyze_lidar("tile.laz")
-
-# Inspect basic raster metadata
-meta = eyes.analyze_raster("image.tif")
-
-# Analyse Sentinel-2 imagery and compute NDVI
-sat = eyes.analyze_satellite_image("sentinel.tif", ndvi_bands=(4, 8))
-
-# Reproject coordinates
-x_web, y_web = eyes.transform_coordinates(-60.123, -3.456)
-
-# Detect simple contours in an image
-contours = eyes.detect_image_features("hillshade.png")
-
-# Create a DTM and hillshade from LiDAR
-dtm_info = eyes.lidar_tile_dtm("tile.laz", out_dir="derived", return_paths=True)
-
-# Run feature detection on a tile
-detections = eyes.lidar_feature_detection("tile.laz")
-
-# Use the lower level shape detector
-shapes = eyes.detect_shapes(dtm_info["hillshade"], dtm_info["profile"])
-
-# Save 256×256 snippets around features
-eyes.save_snippets(dtm_info["hillshade"], detections["features"], "snippets")
-
-# Convenience wrapper for the entire pipeline
-results = eyes.scan_lidar_area("tile.laz")
+    SY -.orchestrates.- EY
+    SY -.orchestrates.- MK
+    SY -.orchestrates.- CX
+    SY -.orchestrates.- BR
+    WS --> SY
+    SY --> OUT["Site-candidate<br/>shortlist + map"]
 ```
 
-## YAML orchestrator snippet
+A typical discovery loop:
 
-Eyes tools can also be referenced from an external agent orchestrator.  The
-example below illustrates how each function could be invoked in a workflow
-definition:
+1. **Eyes** turns raw LiDAR into a bare-earth DTM, derives hillshade and local
+   relief models, and scans them (plus NDVI/NDWI from Sentinel-2) for geometric
+   forms in the 50–300 m range typical of earthworks. Detections across sensors
+   are merged and exported as GeoJSON.
+2. **Memory Keeper** mines colonial chronicles and archives — OCR, translation
+   (ES/PT → EN), named-entity extraction, geocoding, and *distance-clue*
+   inference ("three days upriver from …") — to propose candidate coordinates,
+   and runs semantic search over an indexed text + image corpus.
+3. **Context Engine** scores each candidate's environmental plausibility from
+   elevation, land cover, soil, distance-to-water, and climate.
+4. **Brain** trains a classifier (RandomForest or XGBoost) on the combined
+   features to estimate site likelihood, then clusters nearby detections
+   (DBSCAN) into candidate settlements.
+5. **Synthesizer** ties the threads together and produces a ranked shortlist —
+   the readiness signal for a field expedition.
 
-```yaml
-steps:
-  - name: lidar-inspection
-    tool: analyze_lidar
-    args:
-      path: tile.laz
-
-  - name: raster-meta
-    tool: analyze_raster
-    args:
-      path: image.tif
-
-  - name: sentinel-analysis
-    tool: analyze_satellite_image
-    args:
-      path: sentinel.tif
-      ndvi_bands: [4, 8]
-
-  - name: to-web-mercator
-    tool: transform_coordinates
-    args:
-      x: -60.123
-      y: -3.456
-      to_epsg: 3857
-
-  - name: features-from-image
-    tool: detect_image_features
-    args:
-      path: hillshade.png
-
-  - name: create-dtm
-    tool: lidar_tile_dtm
-    args:
-      path: tile.laz
-      out_dir: derived
-      return_paths: true
-
-  - name: lidar-detection
-    tool: lidar_feature_detection
-    args:
-      path: tile.laz
-      size_range: [50, 300]
-
-  - name: raw-detect-shapes
-    tool: detect_shapes
-    args:
-      image: ${hillshade}
-      profile: ${profile}
-
-  - name: hough-lines
-    tool: detect_lines
-    args:
-      edge_img: ${edge_mask}
-
-  - name: save-snips
-    tool: save_snippets
-    args:
-      image: ${hillshade}
-      features: ${detections}
-      out_dir: snippets
-
-  - name: quick-scan
-    tool: scan_lidar_area
-    args:
-      path: tile.laz
-```
-
-## Frontend map interface
-
-The React dashboard displays detections on an interactive map. To keep the map
-snappy, GeoJSON layers are paginated when more than 2 000 features are loaded.
-Use the controls in the bottom-left corner of the map to step through each
-page of results.
-
-## Shared world state
-
-The agents share intermediate results through a simple in-memory dictionary
-exposed as ``world_state``. The Brain agent records model summaries under
-``latest_model`` and cluster information under ``clusters`` while prediction
-requests populate ``latest_prediction``.  Each action is logged to a
-``messages`` list with ``agent`` and ``type`` fields.  Other agents can import
-``world_state`` and inspect these keys to combine findings:
+Intermediate results flow through [`world_state.py`](world_state.py), a simple
+in-memory dictionary. Each agent action appends a structured `AgentMessage`
+(`agent`, `type`, `content`, `timestamp`) to a shared log, so any agent — or the
+web dashboard — can inspect what the others have found.
 
 ```python
 from world_state import world_state
 model_info = world_state.get("latest_model")
-clusters = world_state.get("clusters", {})
+clusters   = world_state.get("clusters", {})
 ```
 
-## Configurable Brain models
+## Repository layout
 
-The ``Brain`` agent trains a classifier to estimate site likelihoods. By
-default a ``RandomForestClassifier`` is used, but ``train_model`` now accepts a
-``model_type`` option so you can switch to ``xgboost`` if the ``xgboost``
-package is installed:
+```
+casiquiare/
+├── agents/
+│   ├── synthesizer/     Orchestrator — plans and delegates across agents
+│   ├── eyes/            Remote sensing: LiDAR/raster pipeline, shape detection, CLI
+│   ├── brain/           ML: training, scoring, clustering, code execution
+│   ├── memory/          Ethnohistory: OCR, NLP, geocoding, vector search
+│   └── context/         Environment: DEM/land-cover/soil/climate sampling
+├── detection/           Edges, contours, lines, shapes, cross-sensor merge, ML post-filter
+├── processing/          Low-level geo: DTM, hillshade, LRM, NDVI/NDWI, tiles, image utils
+├── io_utils/            Raster & LiDAR readers, data-path resolution
+├── interface/
+│   ├── backend/         Flask API (detections, tiles, logs) + app factory
+│   └── frontend/        React + TypeScript + MUI + Leaflet dashboard
+├── milvus_client.py     Milvus vector DB: text (1536-d) & CLIP image (512-d) collections
+├── clip_model.py        CLIP image encoder
+├── world_state.py       Shared in-memory state and structured message log
+├── output.py            GeoJSON serialization of detections
+├── log_config.py        Logging setup
+├── agent.yaml           Tool manifest for external orchestrators
+├── sample_config.yaml   Annotated runtime configuration
+├── Dockerfile           Multi-stage build (React → Flask)
+└── tests/               54 pytest modules
+```
+
+## Getting started
+
+### Requirements
+
+- Python 3.12
+- An OpenAI API key (for the LLM-driven agent loops)
+- Optional but recommended for the full geospatial toolkit: `scipy` and GDAL
+  (the `osgeo` module) for hillshade/LRM generation
+- Optional for semantic search: a running [Milvus](https://milvus.io) instance
+- Node 18+ if you want to build the web dashboard
+
+Every heavy dependency is imported defensively — the codebase runs (and tests
+pass) even when optional libraries are absent; the features that need them
+simply become unavailable.
+
+### Install
+
+```bash
+git clone https://github.com/nevpit/casiquiare.git
+cd casiquiare
+pip install -r requirements.txt
+export OPENAI_API_KEY="sk-..."
+```
+
+### Scan an area from the command line
+
+The Eyes agent ships a CLI for the core detection pipeline:
+
+```bash
+python -m agents.eyes.cli scan path/to/tile.tif --save-geojson --save-snippets
+```
+
+This loads the raster, detects features, and writes
+`<area>_features.geojson` (plus 256×256 PNG snippets around each detection for
+quick visual inspection).
+
+### Programmatic usage
+
+Each agent tool can be imported and called directly.
+
+```python
+from agents.eyes import eyes_tools as eyes
+
+# LiDAR → DTM → hillshade → feature detection, end to end
+results = eyes.scan_lidar_area("tile.laz", min_size=50, max_size=300)
+
+# Or step by step
+dtm  = eyes.lidar_tile_dtm("tile.laz", out_dir="derived", return_paths=True)
+shps = eyes.detect_shapes(dtm["hillshade"], dtm["profile"])
+eyes.save_snippets(dtm["hillshade"], shps["features"], "snippets")
+
+# Sentinel-2 vegetation anomalies
+sat = eyes.analyze_satellite_image("sentinel.tif", ndvi_bands=(4, 8))
+```
 
 ```python
 from agents.brain import brain_tools
 
+# Train a site-likelihood classifier (random_forest by default, or xgboost)
 info = brain_tools.train_model(df, model_type="xgboost", n_estimators=200)
 ```
 
-## Milvus vector database connection
-
-The project can optionally connect to a self-hosted Milvus instance using the
-``pymilvus`` client. Connection parameters are read from the ``MILVUS_HOST`` and
-``MILVUS_PORT`` environment variables and default to ``localhost`` and
-``19530`` respectively. The helper :func:`connect_milvus` in ``milvus_client``
-establishes the connection:
-
 ```python
-from milvus_client import connect_milvus
+from agents.context import ContextEngine
 
-conn = connect_milvus()  # uses environment variables if provided
+engine  = ContextEngine()
+summary = engine.analyze_environment(
+    dem="dem.tif", land_cover="lc.tif", soil="soil.tif",
+    distance="water.tif", climate="clim.tif",
+    context_layers={}, lat=-3.456, lon=-60.123,
+)
 ```
 
-The Flask backend automatically attempts this connection when
-``create_app`` is called, storing the handle under ``app.extensions['milvus_conn']``.
+### Orchestrated runs
 
-To store text embeddings, a helper is provided to create a collection with a
-1536-dimensional vector field and metadata columns using the L2 metric.  The
-``index_documents`` function now writes each text chunk's embedding to this
-collection along with its ``doc_id``, ``title`` and page number:
+Let the Synthesizer plan and execute across all agents via LLM function calling:
 
 ```python
-from milvus_client import create_embeddings_collection
+from agents.synthesizer import Synthesizer
 
-collection = create_embeddings_collection()
+synth = Synthesizer()
+answer = synth.plan_and_act(
+    "Given the LiDAR detections in tile_01, cross-reference historical "
+    "clues near the Rio Negro and rank the most promising site candidates."
+)
 ```
 
-The helper :func:`create_image_embeddings_collection` sets up a separate
-collection for storing CLIP image vectors. It creates an ``embedding`` field of
-dimension ``512`` along with ``image_id`` and ``source`` metadata columns:
+## Semantic search (Milvus + CLIP)
 
-```python
-from milvus_client import create_image_embeddings_collection
-
-img_coll = create_image_embeddings_collection()
-```
-
-Use :func:`load_clip_model` to initialize the OpenAI CLIP image encoder when the
-application starts so image embeddings can be generated:
-
-```python
-from clip_model import load_clip_model, compute_image_embedding
-
-clip_model = load_clip_model()
-vec = compute_image_embedding("image.jpg")
-```
-
-You can then store vectors for one or more images using
-:func:`insert_image_embeddings`:
-
-```python
-from milvus_client import insert_image_embeddings
-
-insert_image_embeddings([
-    {"image_id": 1, "path": "image.jpg", "source": "scan"},
-])
-```
-
-Text chunks are queried from Milvus as well. The helper :func:`search_text`
-computes an embedding for the query and performs a similarity search in the text
-collection:
+The Memory Keeper can index and query a text + image corpus using a self-hosted
+Milvus vector store. Connection parameters come from `MILVUS_HOST` /
+`MILVUS_PORT` (defaulting to `localhost:19530`); the Flask backend connects and
+provisions collections automatically at startup.
 
 ```python
 from agents.memory import memory_tools
 
-results = memory_tools.search_text("Amazon basin", top_k=3)
+# Semantic text search over indexed documents
+hits = memory_tools.search_text("Amazon basin settlements", top_k=3)
+
+# CLIP-based image similarity — query by image or by text
+imgs = memory_tools.search_images("ancient pottery", top_k=5)
 ```
 
-Images can be queried in a similar way using :func:`search_images`:
+Text embeddings are stored in a 1536-dimension collection; CLIP image
+embeddings in a separate 512-dimension collection.
 
-```python
-from milvus_client import search_images
+## Web dashboard
 
-matches = search_images("artifact.jpg", top_k=5)
+An experimental Flask + React viewer plots detections on an interactive map,
+with side panels for run logs and summaries.
 
-# Alternatively via the Memory Keeper helper
-from agents.memory import memory_tools
-
-matches2 = memory_tools.search_images("ancient pot", top_k=3)
+```bash
+make dashboard
 ```
 
-The function accepts either an image path/PIL object or a text query and returns
-the closest stored images from Milvus.
+This installs requirements, builds the React frontend, and launches the Flask
+server (which serves both the built app and generated map tiles). See
+[`interface/README.md`](interface/README.md) for tile generation and manual
+steps.
 
+The backend exposes:
+
+| Route | Purpose |
+|-------|---------|
+| `GET /eyes/detections` | Latest `*_features.geojson` as JSON |
+| `GET /eyes/summary` | Latest run summary (plain text) |
+| `GET /eyes/logs?n=…` | Tail of the run log |
+| `GET /eyes/snippets/<file>` | Detection snippet PNGs |
+| `GET /tiles/<layer>/<z>/<x>/<y>.png` | Pre-generated XYZ map tiles |
+
+The map paginates GeoJSON in pages of 2,000 features to stay responsive on
+large detection sets.
+
+### Docker
+
+```bash
+docker build -t casiquiare .
+docker run -p 5000:5000 -e OPENAI_API_KEY=sk-... casiquiare
+```
+
+The multi-stage image builds the React frontend, installs the Python backend
+with GDAL, and serves everything on port 5000.
+
+## Configuration
+
+Runtime parameters — logging, model choice, detection thresholds, concurrency,
+Milvus, and CLIP — are documented in [`sample_config.yaml`](sample_config.yaml).
+Backend paths are read from environment variables (`EYES_OUTPUT_DIR`,
+`EYES_TILE_DIR`, `MILVUS_HOST`, `MILVUS_PORT`, `OPENAI_API_KEY`).
+
+The agent tool surface is also described declaratively in
+[`agent.yaml`](agent.yaml) for use by external orchestrators.
+
+## Testing
+
+```bash
+pytest
+```
+
+The suite (54 modules under `tests/`) covers the detection pipeline, ML tools,
+context sampling, memory/vector-search helpers, backend routes, and agent
+integration. Tests are written to run without the optional heavy dependencies.
+
+## Status
+
+casiquiare is **research software** — an exploration of how a coordinated group
+of AI agents might accelerate archaeological prospection. Interfaces are
+experimental and evolving. Detections are candidates for expert review, never
+conclusions; any real-world fieldwork must respect indigenous data sovereignty
+(FPIC/CARE), permitting, and site-protection obligations. Contributions and
+ideas are welcome.
+
+## License
+
+[Apache License 2.0](LICENSE).
