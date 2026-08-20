@@ -7,6 +7,12 @@
 Fusing LiDAR, satellite imagery, historical archives, and environmental data
 to surface likely pre-Columbian settlement sites.
 
+<a href="https://commons.wikimedia.org/wiki/File:Amazon-river-NASA.jpg">
+  <img src="https://commons.wikimedia.org/wiki/Special:FilePath/Amazon-river-NASA.jpg?width=880" alt="The Amazon river system seen from orbit" width="880">
+</a>
+
+<sub><i>The Amazon basin from orbit — a search space the size of a continent. Imagery: NASA (public domain).</i></sub>
+
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-1f1f1f.svg?style=flat-square)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.12-1f1f1f.svg?style=flat-square)](requirements.txt)
 [![Status](https://img.shields.io/badge/status-research-1f1f1f.svg?style=flat-square)](#status)
@@ -58,6 +64,14 @@ dependency is missing, the agent degrades gracefully rather than crashing —
 tools that can run, run.
 
 ## How it fits together
+
+<div align="center">
+<a href="https://commons.wikimedia.org/wiki/File:Manaus-Amazon-NASA.jpg">
+  <img src="https://commons.wikimedia.org/wiki/Special:FilePath/Manaus-Amazon-NASA.jpg?width=820" alt="Confluence of the Rio Negro and the Amazon at Manaus" width="820">
+</a>
+
+<sub><i>The "meeting of the waters" at Manaus — the dark Rio Negro and the sediment-rich Solimões run side by side before they merge. casiquiare works the same way: separate streams of evidence, joined downstream. Imagery: NASA (public domain).</i></sub>
+</div>
 
 ```mermaid
 flowchart TD
@@ -326,6 +340,14 @@ experimental and evolving. Detections are candidates for expert review, never
 conclusions; any real-world fieldwork must respect indigenous data sovereignty
 (FPIC/CARE), permitting, and site-protection obligations. Contributions and
 ideas are welcome.
+
+## Imagery
+
+Satellite photographs in this README are NASA imagery in the public domain,
+served via Wikimedia Commons:
+[Amazon river system](https://commons.wikimedia.org/wiki/File:Amazon-river-NASA.jpg)
+and the
+[Rio Negro–Amazon confluence at Manaus](https://commons.wikimedia.org/wiki/File:Manaus-Amazon-NASA.jpg).
 
 ## License
 
