@@ -62,21 +62,22 @@ tools that can run, run.
 ```mermaid
 flowchart TD
     subgraph inputs [Evidence]
-        L["LiDAR tiles<br/>.laz"]
-        S["Sentinel-2<br/>rasters"]
-        H["Historical texts<br/>& imagery"]
-        E["DEM / land cover /<br/>climate / soil"]
+        L["LiDAR tiles (.laz)"]
+        S["Sentinel-2 rasters"]
+        H["Historical texts and imagery"]
+        E["DEM / land cover / climate / soil"]
     end
 
     subgraph agents [Agents]
-        EY["Eyes<br/>remote sensing"]
-        MK["Memory Keeper<br/>ethnohistory"]
-        CX["Context Engine<br/>environment"]
-        BR["Brain<br/>ML modelling"]
-        SY["Synthesizer<br/>orchestrator"]
+        EY["Eyes — remote sensing"]
+        MK["Memory Keeper — ethnohistory"]
+        CX["Context Engine — environment"]
+        BR["Brain — ML modelling"]
+        SY["Synthesizer — orchestrator"]
     end
 
-    WS[("world_state<br/>shared memory")]
+    WS[("world_state — shared memory")]
+    OUT["Site-candidate shortlist + map"]
 
     L --> EY
     S --> EY
@@ -89,12 +90,12 @@ flowchart TD
     WS --> BR
     BR -->|scores + clusters| WS
 
-    SY -.orchestrates.- EY
-    SY -.orchestrates.- MK
-    SY -.orchestrates.- CX
-    SY -.orchestrates.- BR
+    SY -. orchestrates .-> EY
+    SY -. orchestrates .-> MK
+    SY -. orchestrates .-> CX
+    SY -. orchestrates .-> BR
     WS --> SY
-    SY --> OUT["Site-candidate<br/>shortlist + map"]
+    SY --> OUT
 ```
 
 A typical discovery loop:
